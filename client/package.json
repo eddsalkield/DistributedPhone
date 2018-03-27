@@ -1,0 +1,20 @@
+{
+  "scripts": {
+    "watch": "yarn run webpack -w --env.dev --env.tests",
+    "lint": "yarn run tslint --project tsconfig-dom.json && yarn run tslint --project tsconfig-worker.json"
+  },
+  "dependencies": {
+    "double-ended-queue": "*"
+  },
+  "devDependencies": {
+    "@types/promise.prototype.finally": "^2.0.2",
+    "@types/text-encoding": "*",
+    "@types/webassembly-js-api": "*",
+    "raw-loader": "*",
+    "ts-loader": "*",
+    "tslint": "*",
+    "typescript": "*",
+    "webpack": "*",
+    "webpack-cli": "*"
+  }
+}

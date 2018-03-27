@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "project": ".",
+    "target": "ES2017",
+    "module": "commonjs",
+    "rootDir": "./src",
+    "lib": ["es2018"],
+    "newLine": "lf",
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": false,
+    "strictFunctionTypes": true,
+    "strictPropertyInitialization": true,
+    "strictNullChecks": true,
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "*": [
+        "types/*"
+      ]
+    },
+    "esModuleInterop": true,
+    "sourceMap": true,
+    "noEmitHelpers": false
+  },
+  "types": [
+    "typePatches"
+  ]
+}
