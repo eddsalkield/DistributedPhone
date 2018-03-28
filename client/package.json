@@ -7,7 +7,6 @@
     "double-ended-queue": "*"
   },
   "devDependencies": {
-    "@types/promise.prototype.finally": "^2.0.2",
     "@types/text-encoding": "*",
     "@types/webassembly-js-api": "*",
     "raw-loader": "*",

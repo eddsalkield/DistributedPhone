@@ -114,7 +114,7 @@ function deutf8(data: Uint8Array): string {
 
 function enutf8(data: string): Uint8Array {
     if((self as any).TextEncoder) {
-        const enc = new TextEncoder("utf-8");
+        const enc = new TextEncoder();
         return enc.encode(data);
     } else {
         const l = data.length;
