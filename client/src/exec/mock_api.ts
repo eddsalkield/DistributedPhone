@@ -4,7 +4,7 @@ import * as api from "./api";
 import {Stat} from "./stat";
 
 export default class MockAPI implements api.WorkProvider {
-    public readonly stat: Stat;
+    public readonly stat: Stat | undefined;
 
     public readonly blobs: Map<string, ArrayBuffer>;
     public readonly tasks: Deque<api.Task>;
@@ -27,7 +27,7 @@ export default class MockAPI implements api.WorkProvider {
     public send_max_bytes = 16384;
     public save_timeout = 1000;
 
-    constructor(stat: Stat) {
+    constructor(stat?: Stat) {
         this.stat = stat;
         this.blobs = new Map();
         this.tasks = new Deque();
@@ -37,14 +37,16 @@ export default class MockAPI implements api.WorkProvider {
     }
 
     public report() {
-        this.stat.report("[MockAPI] Available tasks", this.tasks.length);
-        this.stat.report("[MockAPI] Finished tasks", this.task_cnt);
-        this.stat.report("[MockAPI] Finished tasks [OK]", this.task_cnt_ok);
-        this.stat.report("[MockAPI] Finished tasks [error]", this.task_cnt_error);
-        this.stat.report("[MockAPI] Finished tasks [refused]", this.task_cnt_refused);
-        this.stat.report("[MockAPI] Requests for blobs", this.req_cnt_blob);
-        this.stat.report("[MockAPI] Requests for tasks", this.req_cnt_tasks);
-        this.stat.report("[MockAPI] Requests with results", this.req_cnt_results);
+        if(this.stat !== undefined) {
+            this.stat.report("[MockAPI] Available tasks", this.tasks.length);
+            this.stat.report("[MockAPI] Finished tasks", this.task_cnt);
+            this.stat.report("[MockAPI] Finished tasks [OK]", this.task_cnt_ok);
+            this.stat.report("[MockAPI] Finished tasks [error]", this.task_cnt_error);
+            this.stat.report("[MockAPI] Finished tasks [refused]", this.task_cnt_refused);
+            this.stat.report("[MockAPI] Requests for blobs", this.req_cnt_blob);
+            this.stat.report("[MockAPI] Requests for tasks", this.req_cnt_tasks);
+            this.stat.report("[MockAPI] Requests with results", this.req_cnt_results);
+        }
 
         const cond = this.conditions;
         let i = 0, j = 0;

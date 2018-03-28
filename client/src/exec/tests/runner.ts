@@ -6,19 +6,15 @@ import {arrBuf, compare, runTests, withRunner} from "../test-util";
 
 // import * as api from "../api";
 import MemStorage from "../mem_storage";
-import Runner from "../runner";
-import {NullStat} from "../stat";
-
-const the_stat = new NullStat();
 
 function wait(ms: number): Promise<void> {
     return new Promise((resolve,reject) => setTimeout(() => resolve(), ms));
 }
 
 function testStartStop(): Promise<void> {
-    const the_api = new MockAPI(the_stat);
+    const the_api = new MockAPI();
     const the_storage = new MemStorage();
-    return withRunner(Runner.create(the_stat, the_api, the_storage), (runner) => {
+    return withRunner(the_api, the_storage, (runner) => {
         return wait(1000);
     }).then(() => {
         if(the_api.req_cnt_blob !== 0) throw new Error("Unexpected blob request");
@@ -27,7 +23,7 @@ function testStartStop(): Promise<void> {
 }
 
 function testRun(): Promise<void> {
-    const the_api = new MockAPI(the_stat);
+    const the_api = new MockAPI();
     the_api.blobs.set("prog-echo", tb.prog_echo);
     the_api.blobs.set("prog-abort", tb.prog_abort);
     the_api.blobs.set("hw", tb.hello_world);
@@ -67,7 +63,7 @@ function testRun(): Promise<void> {
 
     const the_storage = new MemStorage();
 
-    return withRunner(Runner.create(the_stat, the_api, the_storage), (runner) => {
+    return withRunner(the_api, the_storage, (runner) => {
         return Promise.race([
             the_api.addCondition(() => {
                 return the_api.task_cnt >= 3;

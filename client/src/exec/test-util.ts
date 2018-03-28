@@ -1,5 +1,28 @@
 import Runner from "./runner";
 
+import * as api from "./api";
+import MockAPI from "./mock_api";
+import {Stat} from "./stat";
+import {Storage} from "./storage";
+
+export class TestStat implements Stat {
+    public rejected: boolean;
+    public readonly reject: (_: Error) => void;
+
+    constructor(reject: (_: Error) => void) {
+        this.rejected = false;
+        this.reject = reject;
+    }
+
+    public report(key: string, value: string | number | null): void {}
+
+    public reportError(e: api.ErrorData): void {
+        if(this.rejected) return;
+        this.rejected = true;
+        this.reject(api.BaseError.fromData(e));
+    }
+}
+
 export function arrBuf(data: number[]): ArrayBuffer {
     const buf = new ArrayBuffer(data.length);
     new Uint8Array(buf).set(data);
@@ -19,9 +42,18 @@ export function strBuf(data: string) {
     return arrBuf(arr);
 }
 
-export function withRunner<T>(pr: Promise<Runner>, func: (r: Runner) => Promise<T>): Promise<T> {
-    return pr.then((r) => {
-        return Promise.resolve(r).then(func).finally(() => r.stop());
+export function withRunner<T>(the_api: MockAPI, the_storage: Storage, func: (r: Runner) => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        const the_stat = new TestStat(reject);
+        Runner.create(the_stat, the_api, the_storage).then((r) => {
+            return Promise.resolve(r).then(func).finally(() => r.stop());
+        }).then((v) => {
+            setTimeout(() => {
+                if(!the_stat.rejected) resolve(v);
+            }, 100);
+        }, (e) => {
+            if(!the_stat.rejected) reject(e);
+        });
     });
 }
 
