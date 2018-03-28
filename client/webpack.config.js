@@ -51,6 +51,7 @@ module.exports = function(env, argv) {
     stuff = stuff.concat([
       makeConfig("exec-test-rig.js", "./src/exec/test-rig.ts", "tsconfig-dom.json"),
       makeConfig("test-exec-runner.js", "./src/exec/tests/runner.ts", "tsconfig-dom.json"),
+      makeConfig("test-exec-idb.js", "./src/exec/tests/idb.ts", "tsconfig-dom.json"),
     ]);
   }
 

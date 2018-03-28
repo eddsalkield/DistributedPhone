@@ -50,19 +50,26 @@ export function writeLine(text: string) {
     self.document.body.appendChild(self.document.createElement("br"));
 }
 
-export function withRunner<T>(the_api: MockAPI, the_storage: Storage, func: (r: Runner) => Promise<T>): Promise<T> {
+export function withStat<T>(f: (s: Stat) => Promise<T>): Promise<T> {
     return new Promise<T>((resolve, reject) => {
         const the_stat = new TestStat(reject);
-        Runner.create(the_stat, the_api, the_storage).then((r) => {
-            return Promise.resolve(r).then(func).finally(() => r.stop());
-        }).then((v) => {
+        Promise.resolve(the_stat).then(f).then((v) => {
             setTimeout(() => {
                 if(!the_stat.rejected) resolve(v);
-            }, 100);
+            }, 500);
         }, (e) => {
-            if(!the_stat.rejected) reject(e);
+            if(!the_stat.rejected) {
+                the_stat.rejected = true;
+                reject(e);
+            }
         });
     });
+}
+
+export function withRunner<T>(the_api: MockAPI, the_storage: Storage, func: (r: Runner) => Promise<T>): Promise<T> {
+    return withStat((the_stat) => Runner.create(the_stat, the_api, the_storage).then((r) => {
+        return Promise.resolve(r).then(func).finally(() => r.stop());
+    }));
 }
 
 enum CompareKind {
