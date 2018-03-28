@@ -42,6 +42,14 @@ export function strBuf(data: string) {
     return arrBuf(arr);
 }
 
+export function writeText(text: string) {
+    self.document.body.appendChild(self.document.createTextNode(text));
+}
+export function writeLine(text: string) {
+    self.document.body.appendChild(self.document.createTextNode(text));
+    self.document.body.appendChild(self.document.createElement("br"));
+}
+
 export function withRunner<T>(the_api: MockAPI, the_storage: Storage, func: (r: Runner) => Promise<T>): Promise<T> {
     return new Promise<T>((resolve, reject) => {
         const the_stat = new TestStat(reject);
@@ -62,27 +70,46 @@ enum CompareKind {
     OBJECT = 1,
     ARRAY = 2,
     MAP = 3,
+    ARRAY_BUFFER = 4,
+}
+
+function typename(obj: any) {
+    return Object.getPrototypeOf(obj).constructor.name;
 }
 
 function compareKind(obj: any) {
     if(typeof obj !== "object") return CompareKind.PRIMITIVE;
     if(obj instanceof Array) return CompareKind.ARRAY;
     if(obj instanceof Map) return CompareKind.MAP;
-    return CompareKind.OBJECT;
+    if(obj instanceof ArrayBuffer) return CompareKind.ARRAY_BUFFER;
+    if(Object.getPrototypeOf(obj) === Object.prototype) return CompareKind.OBJECT;
+    throw new Error(`Don't know how to compare ${typename(obj)}`);
+}
+
+function diffArrayBuffer(a1: ArrayBuffer, a2: ArrayBuffer): number {
+    const v1 = new Uint8Array(a1), v2 = new Uint8Array(a2);
+    const l = Math.min(v1.length, v2.length);
+    for(let i = 0; i < l; i += 1) {
+        if(v1[i] !== v2[i]) return l;
+    }
+    if(v1.length !== v2.length) return l;
+    return -1;
 }
 
 export function compare(got: any, want: any, path: string) {
     if(want["@compare@func"] !== undefined) return want["@compare@func"](got);
-    const k1 = compareKind(got), k2 = compareKind(want);
-    if(k1 !== k2) {
-        throw new Error(`got${path} !== want${path}: different types: ${CompareKind[k1]} !== ${CompareKind[k2]}`);
-    }
-    if(k1 === CompareKind.PRIMITIVE) {
+    const kind = compareKind(want);
+    if(kind === CompareKind.PRIMITIVE) {
         if(got !== want) {
             throw new Error(`got${path} !== want${path}: primitive values differ: ${got} !== ${want}`);
         }
-    } else if(k1 === CompareKind.OBJECT) {
+    } else if(kind === CompareKind.OBJECT) {
+        if(Object.getPrototypeOf(got) !== Object.prototype) {
+            throw new Error(`got${path} !== want${path}: expected object, got ${typename(got)}`);
+        }
+
         const k_got = Object.keys(got), k_want = Object.keys(want);
+
         let ignore = (k: string, v?: any) => v === undefined;
         const i = k_want.indexOf("@compare@ignore");
         if(i !== -1) {
@@ -109,15 +136,24 @@ export function compare(got: any, want: any, path: string) {
                 compare(got[p], want[p], path + "." + p);
             }
         }
-    } else if(k1 === CompareKind.ARRAY) {
+    } else if(kind === CompareKind.ARRAY) {
+        if(!(got instanceof Array)) {
+            throw new Error(`got${path} !== want${path}: expected array, got ${typename(got)}`);
+        }
+
         const l1: number = got.length, l2: number = want.length;
         if(l1 !== l2) {
             throw new Error(`got${path} !== want${path}: array lengths differ`);
         }
+
         for(let i = 0; i < l1; i += 1) {
             compare(got[i], want[i], path + "[" + i + "]");
         }
-    } else if(k1 === CompareKind.MAP) {
+    } else if(kind === CompareKind.MAP) {
+        if(!(got instanceof Map)) {
+            throw new Error(`got${path} !== want${path}: expected map, got ${typename(got)}`);
+        }
+
         const k_got = Array.from(got.keys()), k_want = Array.from(want.keys());
 
         for(const p of k_want) {
@@ -133,6 +169,19 @@ export function compare(got: any, want: any, path: string) {
                 compare(got.get(p), want.get(p), path + "[" + JSON.stringify(p) + "]");
             }
         }
+    } else if(kind === CompareKind.ARRAY_BUFFER) {
+        if(!(got instanceof ArrayBuffer)) {
+            throw new Error(`got${path} !== want${path}: expected ArrayBuffer, got ${typename(got)}; ${got}`);
+        }
+
+        const diff = diffArrayBuffer(got, want);
+        if(diff !== -1) {
+            let msg = "";
+            if(got.byteLength !== want.byteLength) {
+                msg = `; got size ${got.byteLength}, want ${want.byteLength}`;
+            }
+            throw new Error(`got${path} !== want${path}: difference at byte ${diff}${msg}`);
+        }
     } else {
         throw new Error("WTF");
     }
@@ -143,16 +192,17 @@ export function runTests(tests: Array<() => Promise<void>>): Promise<void> {
         let i = 0;
         const runner = () => {
             if(i === tests.length) {
+                writeLine("Done");
                 resolve();
                 return;
             }
             const test = tests[i];
-            document.write("Running test " + test.name + " ... ");
+            writeText("Running test " + test.name + " ... ");
             i += 1;
             new Promise<void>((res,rej) => res(test())).then(() => {
-                document.write("Pass<br/>");
+                writeLine("Pass");
             }, (e) => {
-                document.write("Error: " + e.message + "<br/>");
+                writeLine("Error: " + e.message);
             }).then(runner);
         };
         runner();

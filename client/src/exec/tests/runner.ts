@@ -68,7 +68,7 @@ function testRun(): Promise<void> {
             the_api.addCondition(() => {
                 return the_api.task_cnt >= 3;
             }).then(() => true),
-            wait(1000).then(() => false),
+            wait(5000).then(() => false),
         ]);
     }).then((ok) => {
         if(!ok) throw new Error("Timed out");
@@ -82,7 +82,5 @@ self.onload = () => {
     runTests([
         testStartStop,
         testRun,
-    ]).then(() => {
-        document.write("Done<br/>");
-    });
+    ]);
 };

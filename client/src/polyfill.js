@@ -14,3 +14,15 @@ if(!Promise.prototype.finally) {
         });
     }
 }
+
+if(self.document) {
+    self.document.write = function() {
+        throw new Error("document.open() is bad");
+    }
+    self.document.open = function() {
+        throw new Error("document.open() is bad");
+    }
+    self.document.close = function() {
+        throw new Error("document.open() is bad");
+    }
+}
