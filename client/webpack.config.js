@@ -5,12 +5,13 @@ distdir = path.resolve(__dirname, "dist");
 
 module.exports = function(env, argv) {
   if(!env) env = {};
-  function makeConfig(out_name, in_file, tsconfig) {
+  function makeConfig(target, tsconfig) {
     return {
+      target: target,
       mode: env.dev ? "development" : "production",
       devtool: env.dev ? "inline-source-map" : false,
       optimization: {
-        minimize: !env.dev
+        minimize: !env.dev,
       },
 
       module: {
@@ -33,27 +34,25 @@ module.exports = function(env, argv) {
           Dist: distdir,
         }
       },
-      entry: in_file,
+      entry: {},
       output: {
-        filename: out_name,
         path: distdir,
+        filename: '[name].js',
       },
-    }
+    };
   }
 
-  stuff = [
-    // Order is important.
-    makeConfig("worker.js", "./src/worker/worker.ts", "tsconfig-worker.json"),
-    makeConfig("index.js", "./index.ts", "tsconfig-dom.json"),
-  ];
+  as_worker = makeConfig("webworker", "tsconfig-worker.json");
+  as_dom = makeConfig("web", "tsconfig-dom.json");
 
+  as_worker.entry["worker"] =  "./src/worker/worker.ts";
+
+  as_dom.entry["index"] =  "./index.ts";
   if(env.tests) {
-    stuff = stuff.concat([
-      makeConfig("exec-test-rig.js", "./src/exec/test-rig.ts", "tsconfig-dom.json"),
-      makeConfig("test-exec-runner.js", "./src/exec/tests/runner.ts", "tsconfig-dom.json"),
-      makeConfig("test-exec-idb.js", "./src/exec/tests/idb.ts", "tsconfig-dom.json"),
-    ]);
+    as_dom.entry["exec-test-rig"] = "./src/exec/test-rig.ts";
+    as_dom.entry["test-exec-runner"] = "./src/exec/tests/runner.ts";
+    as_dom.entry["test-exec-idb"] = "./src/exec/tests/idb.ts";
   }
 
-  return stuff;
+  return [as_worker, as_dom];
 }

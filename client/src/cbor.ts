@@ -941,13 +941,13 @@ export class Writer {
             } else {
                 this.data.setUint16(this.at + 1, 0x8000);
             }
-        }
-        this._reserve(9);
-        this.data.setFloat32(this.at + 1, val);
-        if(this.data.getFloat32(this.at + 1) === val) {
+        } else if(val === Math.fround(val)) {
+            this._reserve(5);
             this.data.setUint8(this.at, TAG_FLOAT32);
+            this.data.setFloat32(this.at + 1, val);
             this.at += 5;
         } else {
+            this._reserve(9);
             this.data.setUint8(this.at, TAG_FLOAT64);
             this.data.setFloat64(this.at + 1, val);
             this.at += 9;

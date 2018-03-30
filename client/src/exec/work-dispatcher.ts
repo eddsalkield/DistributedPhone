@@ -4,13 +4,15 @@ import * as api from "./api";
 import {Stat} from "./stat";
 import * as workapi from "./workapi";
 
+type Transferable = ArrayBuffer | MessagePort;
+
 export interface Work {
     onStart(): void;
     onError(err: api.ErrorData): void;
     onDone(out: workapi.OutResult): void;
     onControl(ctl: workapi.Worker, out: workapi.OutControl): boolean;
     input: workapi.InWork;
-    transfer?: any;
+    transfer?: Transferable[];
 }
 
 class WorkerController implements workapi.Worker {
@@ -56,7 +58,7 @@ class WorkerController implements workapi.Worker {
         this.stat.report(key, msg);
     }
 
-    private send(data: workapi.In, transfer: any | undefined) {
+    private send(data: workapi.In, transfer: Transferable[] | undefined) {
         this.w.postMessage(data, transfer);
     }
 
@@ -74,7 +76,7 @@ class WorkerController implements workapi.Worker {
         this.report();
     }
 
-    public sendControl(data: workapi.InControl, transfer?: any) {
+    public sendControl(data: workapi.InControl, transfer?: Transferable[]) {
         this.send({control: data}, transfer);
     }
 

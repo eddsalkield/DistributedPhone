@@ -1,7 +1,5 @@
 declare module "double-ended-queue" {
-    export = Deque;
-
-    class Deque<T> {
+    export default class Deque<T> {
         constructor(capacity?: number | Array<T>);
 
         push(...data: T[]): void;
@@ -31,6 +29,5 @@ declare module "double-ended-queue" {
         isEmpty(): boolean;
 
         clear(): void;
-
     }
 }
