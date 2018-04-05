@@ -10,14 +10,17 @@ class TaskDistributor:
 	## --- Work in Progress --- ### (won't compile)
 
 	# Areas for improvement:
+	#	-- Un-guess function names / interface with server (so it actually compiles)
+	#	-- Tidy up code
 	# 	-- Better distribution of task sizes / greater variety in interval length
 	#	-- Better storage of results (and actually doing something with them)
 	# 	-- Cap on the number of tasks put out there, with constant filling up:
 	#			At the moment we just put the entire range out there to be done by workers, 
 	#			then wait for them all to be computed. Although this isn't so bad as the blobs / 
 	#			tasks are quite small in size, it's not ideal. Instead we should put, say,
-	#			100 tasks out at a time, and replace them with new ones each time they done.
-
+	#			100 tasks out at a time, and replace them with new ones each time they done
+	
+	
 	# For now we just have a fixed range.
 	# Starting at 'search_start', we have 'number_tasks' intervals of length 'fixed_range'
 	# So the total search will be between [search_start ... search_start + fixed_range * number_tasks)
@@ -47,19 +50,14 @@ class TaskDistributor:
 		blobID = something.createNewBlob (self.token, self.projectID, blob, metadata)
 		taskifyBlob (blobID)
 		return blobID
- Updated 35 minutes ago by OliverWD
-0
-1
-
+	
 	# When a worker finished a computation, it places a blob in the database along with metadata
 	# indicating whether the task is finished. The customer will routinely scan (will it?) the database for
 	# finished blobs and will acquire their results before deleting them.
 	def monitorBlobs(self):
-
 		while (1):
-
 			metaBlobs = getBlobMetadata(self.token, self.projectID, self.relevantBlobs)
-
+			
 			# If there are no blobs	left
 			if len(metaBlobs) == 0:
 				break
@@ -111,8 +109,8 @@ def login ():
 	
 	# Extract details from get request
 	successLogin = loginDump.get('success')
-	errorLogin   = loginDump.get('error')
-	token			 = loginDump.get('token')	
+	errorLogin = loginDump.get('error')
+	token = loginDump.get('token')	
 
 	# If bad login, report & exit
 	if not successLogin:
