@@ -34,7 +34,7 @@ class TaskDistributor:
 		initTasks()
 		monitorBlobs()
 	
-	def initTasks (self):
+	def initTasks (self)
 		for taskNo in range (0, number_tasks):
 			start = search_start + taskNo * fixedRange
 			newBlobID = _makeTask (start, start + fixedRange - 1)
@@ -47,6 +47,9 @@ class TaskDistributor:
 		blobID = something.createNewBlob (self.token, self.projectID, blob, metadata)
 		taskifyBlob (blobID)
 		return blobID
+ Updated 35 minutes ago by OliverWD
+0
+1
 
 	# When a worker finished a computation, it places a blob in the database along with metadata
 	# indicating whether the task is finished. The customer will routinely scan (will it?) the database for
@@ -127,8 +130,8 @@ def createProject():
 	projectDump = cbor.loads(projectRead)
 
 	successProject = projectDump.get('success')
-	errorProject	= projectDump.get('error')
-	projectID		= projectDump.get('pID')
+	errorProject = projectDump.get('error')
+	projectID = projectDump.get('pID')
 
 	if not successProject:
 		print(errorProject)
