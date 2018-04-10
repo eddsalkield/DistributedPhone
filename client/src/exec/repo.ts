@@ -1,7 +1,9 @@
 import Deque from "double-ended-queue";
 
+import * as err from "../err";
+import * as stat from "../stat";
+
 import * as api from "./api";
-import {Stat} from "./stat";
 import {Ref, Storage} from "./storage";
 
 interface BlobState {
@@ -22,37 +24,27 @@ interface BlobState {
 /* BlobRepo implements the bookkeeping related to downloading and storing
  * blobs. It will also be responsible for rate-limiting downloading. */
 export class BlobRepo {
-    public readonly stat: Stat;
-    private readonly provider: api.WorkProvider;
-    private readonly storage: Storage;
+    private readonly blobs = new Map<string, BlobState>();
 
-    private readonly blobs: Map<string, BlobState>;
-
-    private readonly dlq: Deque<BlobState>;
-    private dlq_counter: number;
-    private dl_cur: number;
+    private readonly dlq = new Deque<BlobState>();
+    private dlq_counter: number = 0;
+    private dl_cur: number = 0;
     private dl_max: number = 3;
 
-    private local_counter: number;
+    private local_counter: number = 0;
 
     private stopping?: () => void;
 
-    constructor(stat: Stat, provider: api.WorkProvider, storage: Storage) {
-        this.stat = stat;
-        this.provider = provider;
-        this.storage = storage;
-
-        this.blobs = new Map();
-        this.dlq = new Deque();
-        this.dlq_counter = 0;
-        this.dl_cur = 0;
-        this.local_counter = 0;
-    }
+    constructor(
+        private readonly st: stat.Sink,
+        private readonly provider: api.WorkProvider,
+        private readonly storage: Storage
+    ) {}
 
     /* Delete all unknown blobs, and possibly some unneeded remote blobs. */
-    public static create(stat: Stat, provider: api.WorkProvider, storage: Storage): Promise<BlobRepo> {
+    public static create(st: stat.Sink, provider: api.WorkProvider, storage: Storage): Promise<BlobRepo> {
         return storage.list().then((refs) => {
-            const repo = new BlobRepo(stat, provider, storage);
+            const repo = new BlobRepo(st, provider, storage);
             for(const ref of refs) {
                 if(ref.id.startsWith("local/")) {
                     const num = Number(ref.id.slice(6));
@@ -72,15 +64,15 @@ export class BlobRepo {
 
     private checkRef(blob: BlobState, ref: Ref): boolean {
         if(blob.ref.size !== ref.size) {
-            const err = new api.StateError("Blob size mismatch", {
+            const e = new err.State("Blob size mismatch", {
                 blob_id: ref.id,
                 got_size: blob.ref.size,
                 want_size: ref.size,
             });
             if(blob.available) {
-                throw err;
+                throw e;
             } else {
-                this.stat.reportError(err.attr);
+                this.st.reportError(e.attr);
                 return false;
             }
         }
@@ -90,7 +82,7 @@ export class BlobRepo {
     private checkWant(blob: BlobState, ref: Ref): boolean {
         const r = this.checkRef(blob, ref);
         if(!blob.available && !blob.ref.id.startsWith("remote/")) {
-            throw new api.StateError("Blob not reachable", {
+            throw new err.State("Blob not reachable", {
                 blob_id: ref.id,
             });
         }
@@ -100,7 +92,7 @@ export class BlobRepo {
     private checkAvailable(blob: BlobState, ref: Ref): void {
         const r = this.checkWant(blob, ref);
         if(!blob.available) {
-            throw new api.StateError("Blob not available", {
+            throw new err.State("Blob not available", {
                 blob_id: ref.id,
             });
         }
@@ -110,7 +102,7 @@ export class BlobRepo {
 
     public stop(): Promise<void> {
         if(this.stopping) {
-            throw new api.StateError("Already stopping");
+            throw new err.State("Already stopping");
         }
         return new Promise((resolve, reject) => {
             this.stopping = resolve;
@@ -147,11 +139,11 @@ export class BlobRepo {
 
         return new Promise<T>((resolve, reject) => {
             let pending = 1 + unavail.length;
-            const cb = (err: Error | null) => {
+            const cb = (e: Error | null) => {
                 if(pending === -1) return;
-                if(err) {
+                if(e) {
                     pending = -1;
-                    reject(err);
+                    reject(e);
                     return;
                 }
 
@@ -169,16 +161,16 @@ export class BlobRepo {
 
             const will_download: BlobState[] = [];
             for(const [blob,want_size] of unavail) {
-                const cb_this = (err: Error | null) => {
-                    console.assert(err !== null || blob.available);
-                    if(!err && blob.ref.size !== want_size) {
-                        err = new api.StateError("Blob size mismatch", {
+                const cb_this = (e: Error | null) => {
+                    console.assert(e !== null || blob.available);
+                    if(!e && blob.ref.size !== want_size) {
+                        e = new err.State("Blob size mismatch", {
                             blob_id: blob.ref.id,
                             got_size: blob.ref.size,
                             want_size: want_size,
                         });
                     }
-                    cb(err);
+                    cb(e);
                 };
 
                 if(!blob.on_available) {
@@ -204,7 +196,7 @@ export class BlobRepo {
     public read(ref: Ref): Promise<ArrayBuffer> {
         const blob = this.blobs.get(ref.id);
         if(!blob) {
-            return Promise.reject(new api.StateError("Unknown blob", {
+            return Promise.reject(new err.State("Unknown blob", {
                 blob_id: ref.id,
             }));
         }
@@ -216,7 +208,7 @@ export class BlobRepo {
         console.assert(blob.refcnt > 0);
         return this.storage.get(blob.ref.id).then((data) => {
             if(data.byteLength !== ref.size) {
-                throw new api.StateError("Blob size conflict", {
+                throw new err.State("Blob size conflict", {
                     blob_id: ref.id,
                     got_size: data.byteLength,
                     want_size: ref.size,
@@ -285,7 +277,7 @@ export class BlobRepo {
         const blob = this.blobs.get("state/" + name);
         if(!blob) return Promise.resolve(null);
         if(!blob.available) {
-            throw new api.StateError("State not available");
+            throw new err.State("State not available");
         }
         blob.refcnt += 1;
         return this.read(blob.ref).finally(() => {
@@ -300,7 +292,7 @@ export class BlobRepo {
         };
         const blob = this.getBlobState(ref);
         if(blob.refcnt !== 0) {
-            throw new api.StateError("State is being read");
+            throw new err.State("State is being read");
         }
         blob.ref = ref;
         blob.available = false;
@@ -328,7 +320,7 @@ export class BlobRepo {
         if(blob) return blob;
 
         if(!ref.id.startsWith("remote/") && !ref.id.startsWith("state/")) {
-            throw new api.StateError("Can't get blob", {blob_id: ref.id});
+            throw new err.State("Can't get blob", {blob_id: ref.id});
         }
 
         return this.createBlobState(ref, false);
@@ -397,7 +389,7 @@ export class BlobRepo {
             this.provider.getBlob(id.slice(7)).then((data) => {
                 const size = data.byteLength;
                 if(size !== blob.ref.size) {
-                    this.stat.reportError({
+                    this.st.reportError({
                         kind: "state",
                         message: "Blob size changed",
                         blob_id: blob.ref.id,
@@ -417,7 +409,7 @@ export class BlobRepo {
                     fin(e);
                 });
             }, (e) => {
-                if(e instanceof api.NetworkError) {
+                if(e instanceof err.Network) {
                     this.dlRequeue(blob);
                     return;
                 }

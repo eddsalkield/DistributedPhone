@@ -12,18 +12,18 @@ function wait(ms: number): Promise<void> {
 }
 
 function testStartStop(): Promise<void> {
-    const the_api = new MockAPI();
+    const the_api = new MockAPI(null);
     const the_storage = new MemStorage();
     return withRunner(the_api, the_storage, (runner) => {
         return wait(1000);
     }).then(() => {
-        if(the_api.req_cnt_blob !== 0) throw new Error("Unexpected blob request");
-        if(the_api.req_cnt_results !== 0) throw new Error("Unexpected results request");
+        if(the_api.req_cnt_blob.value !== 0) throw new Error("Unexpected blob request");
+        if(the_api.req_cnt_results.value !== 0) throw new Error("Unexpected results request");
     });
 }
 
 function testRun(): Promise<void> {
-    const the_api = new MockAPI();
+    const the_api = new MockAPI(null);
     the_api.blobs.set("prog-echo", tb.prog_echo);
     the_api.blobs.set("prog-abort", tb.prog_abort);
     the_api.blobs.set("hw", tb.hello_world);
@@ -66,14 +66,14 @@ function testRun(): Promise<void> {
     return withRunner(the_api, the_storage, (runner) => {
         return Promise.race([
             the_api.addCondition(() => {
-                return the_api.task_cnt >= 3;
+                return the_api.total_task_cnt >= want_results.size;
             }).then(() => true),
             wait(5000).then(() => false),
         ]);
     }).then((ok) => {
         if(!ok) throw new Error("Timed out");
-        if(the_api.req_cnt_results === 0) throw new Error("Expected results");
-        if(the_api.task_dup_cnt !== 0) throw new Error("Duplicated task results");
+        if(the_api.req_cnt_results.value === 0) throw new Error("Expected results");
+        if(the_api.task_dup_cnt.value !== 0) throw new Error("Duplicated task results");
         compare(the_api.results, want_results, "");
     });
 }

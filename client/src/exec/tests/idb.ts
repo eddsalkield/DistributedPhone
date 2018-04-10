@@ -2,7 +2,8 @@ import "../../polyfill";
 
 import {arrBuf, compare, runTests, withStat} from "../test-util";
 
-import * as api from "../api";
+import * as err from "../../err";
+
 import IDBStorage from "../idb_storage";
 
 function withIDB<T>(name: string, f: (s: IDBStorage) => Promise<T>): Promise<T> {
@@ -60,8 +61,8 @@ function testGet() {
             return s.get("key3").then(() => {
                 throw new Error("Expected `key3` not to exist");
             }, (e) => {
-                if(!(e instanceof api.StateError)) {
-                    throw new Error("Expected StateError for nonexistent blob");
+                if(!(e instanceof err.State)) {
+                    throw new Error("Expected err.State for nonexistent blob");
                 }
             });
         }).then(() => s.list()).then((l) => {
@@ -96,15 +97,15 @@ function testDelete() {
             return s.get("key2").then(() => {
                 throw new Error("Expected `key2` not to exist");
             }, (e) => {
-                if(!(e instanceof api.StateError)) {
-                    throw new Error("Expected StateError for nonexistent blob");
+                if(!(e instanceof err.State)) {
+                    throw new Error("Expected err.State for nonexistent blob");
                 }
             });
         }).then((repl) => {
             return s.get("key1").then(() => {
                 return;
             }, (e) => {
-                if(e instanceof api.StateError) {
+                if(e instanceof err.State) {
                     throw new Error("Expected `key1` to exist");
                 } else {
                     throw e;

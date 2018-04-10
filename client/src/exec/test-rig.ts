@@ -1,17 +1,16 @@
 import "../polyfill";
 
+import * as stat from "../stat";
+
 import {arrBuf, b64Buf} from "./test-util";
 
 import * as api from "./api";
 import MemStorage from "./mem_storage";
 import Runner from "./runner";
-import {Stat} from "./stat";
 
 import MockAPI from "./mock_api";
 
-class PrintStat implements Stat {
-    public update = new Map<string, string | null>();
-    public dirty = false;
+class PrintTSDB implements stat.TSDB {
     public table: HTMLElement;
     public table_data: Array<[string, string, HTMLElement]> = [];
 
@@ -19,34 +18,33 @@ class PrintStat implements Stat {
         this.table = table;
     }
 
-    public report(key: string, value: string | number | null) {
-        if(value === null) {
-            this.update.set(key, null);
-        } else {
-            this.update.set(key, "" + value);
-        }
-
-        if(!this.dirty) {
-            this.dirty = true;
-            setTimeout(this.flush.bind(this), 100);
-        }
-    }
-
-    public reportError(err: api.ErrorData) {
+    public writeError(time: number, err: api.ErrorData) {
         console.log(err);
     }
 
-    public flush() {
-        this.dirty = false;
-
+    public write(time: number, update: stat.Point[]) {
         const compare = (ka: string, kb: string) => {
             if(ka < kb) return -1;
             if(ka > kb) return 1;
             return 0;
         };
 
-        const lines = Array.from(this.update.entries());
-        this.update.clear();
+        const lines = update.map(([name, key, value]) => {
+            const key_keys = Object.keys(key);
+            key_keys.sort();
+            if(key_keys.length !== 0) {
+                let key_fmt: string = "";
+                for(const k of key_keys) {
+                    key_fmt += ",";
+                    key_fmt += k;
+                    key_fmt += "=";
+                    key_fmt += key[k];
+                }
+                name += "[" + key_fmt.slice(1) + "]";
+            }
+            return [name, "" + value];
+        });
+
         lines.sort((x,y) => compare(x[0], y[0]));
 
         const tbl = this.table_data;
@@ -138,8 +136,8 @@ export function main() {
     const but_more = self.document.getElementById("but_more")!;
     const but_start = self.document.getElementById("but_start")!;
 
-    const stat = new PrintStat(tbody);
-    const the_api = new MockAPI(stat);
+    const st = new stat.Root(new PrintTSDB(tbody));
+    const the_api = new MockAPI(st);
 
     the_api.blobs.set("prog-fib", b64Buf(
         "AGFzbQEAAAABHgZgAX8AYAAAYAF/AX9gAn9/AGADf39/AGACf38BfwIhAgNlbnYGbWVtb3J5AgAC" +
@@ -261,7 +259,7 @@ export function addRunner(the_api: api.WorkProvider) {
     const tbody = self.document.createElement("tbody")!;
     table.appendChild(tbody);
 
-    const stat = new PrintStat(tbody);
+    const st = new stat.Root(new PrintTSDB(tbody));
     const the_storage = new MemStorage();
 
     let r: Runner | null;
@@ -279,7 +277,7 @@ export function addRunner(the_api: api.WorkProvider) {
     const do_start = () => {
         but_stop.innerHTML = "Starting";
         but_stop.onclick = () => {};
-        Runner.create(stat, the_api, the_storage).then((rv) => {
+        Runner.create(st, the_api, the_storage).then((rv) => {
             r = rv;
             but_stop.innerHTML = "Stop";
             but_stop.onclick = do_stop;

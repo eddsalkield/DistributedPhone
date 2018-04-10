@@ -1,8 +1,10 @@
 import Deque from "double-ended-queue";
 
+import * as err from "../err";
+import * as stat from "../stat";
+
 import * as api from "./api";
 import {BlobRepo} from "./repo";
-import {Stat} from "./stat";
 import {Ref, Storage} from "./storage";
 import WorkDispatcher from "./work-dispatcher";
 import * as workapi from "./workapi";
@@ -61,9 +63,9 @@ class Task {
         this.out_data = out_data;
     }
 
-    public setError(err: api.ErrorData): void {
+    public setError(e: api.ErrorData): void {
         this.out_status = TaskStatus.ERROR;
-        this.out_error = Object.assign({}, err);
+        this.out_error = Object.assign({}, e);
     }
 
     public setRefused(): void {
@@ -74,59 +76,50 @@ class Task {
 const worker_blob: Blob = new Blob([worker_text], {type: "text/javascript"});
 
 export default class Runner {
-    private readonly stat: Stat;
-    private readonly provider: api.WorkProvider;
-    private readonly repo: BlobRepo;
-    private readonly dispatcher: WorkDispatcher;
+    private readonly st_pending = new stat.Metric<number>("Runner/tasks_pending").attach(this.st);
+    private readonly st_blocked = new stat.Metric<number>("Runner/tasks_blocked").attach(this.st);
+    private readonly st_running = new stat.Metric<number>("Runner/tasks_running").attach(this.st);
+    private readonly st_finished = new stat.Metric<number>("Runner/tasks_finished").attach(this.st);
+    private readonly st_sending = new stat.Metric<number>("Runner/tasks_sending").attach(this.st);
+    private readonly st_sent = new stat.Counter("Runner/tasks_sent").attach(this.st);
+
+    private readonly dispatcher: WorkDispatcher = new WorkDispatcher(this.st, worker_blob);
 
     // Only works in Firefox?
     public static send_wasm_mod: boolean = false;
 
-    private tasks: Map<string, Task>;
+    private tasks = new Map<string, Task>();
 
-    private tasks_pending: Deque<Task>;
-    private tasks_blocked: Set<Task>;
-    private tasks_running: Set<Task>;
-    private tasks_finished: Deque<Task>;
-    private tasks_sending: Set<Task>;
+    private tasks_pending = new Deque<Task>();
+    private tasks_blocked = new Set<Task>();
+    private tasks_running = new Set<Task>();
+    private tasks_finished = new Deque<Task>();
+    private tasks_sending = new Set<Task>();
 
-    private requesting_tasks: boolean;
-    private sending_results: boolean;
+    private requesting_tasks: boolean = false;
+    private sending_results: boolean = false;
 
     private stopping?: () => void;
-    private stop_count: number;
+    private stop_count: number = 0;
 
-    private constructor(stat: Stat, provider: api.WorkProvider, repo: BlobRepo) {
-        this.stat = stat;
-        this.provider = provider;
-        this.repo = repo;
-        this.dispatcher = new WorkDispatcher(stat, worker_blob);
+    private constructor(
+        private readonly st: stat.Sink,
+        private readonly provider: api.WorkProvider,
+        private readonly repo: BlobRepo
+    ) {
         this.dispatcher.maxWorkers = () => provider.workers;
         this.dispatcher.onRequest = this.pull.bind(this);
         this.dispatcher.onControl = this.onControl.bind(this);
-
-        this.tasks = new Map();
-
-        this.tasks_pending = new Deque();
-        this.tasks_blocked = new Set();
-        this.tasks_running = new Set();
-        this.tasks_finished = new Deque();
-        this.tasks_sending = new Set();
-
-        this.requesting_tasks = false;
-        this.sending_results = false;
-
-        this.stop_count = 0;
     }
 
-    public static create(stat: Stat, provider: api.WorkProvider, storage: Storage): Promise<Runner> {
-        return BlobRepo.create(stat, provider, storage).then((repo) => repo.readState("runner").then((data) => {
-            const r = new Runner(stat, provider, repo);
+    public static create(st: stat.Sink, provider: api.WorkProvider, storage: Storage): Promise<Runner> {
+        return BlobRepo.create(st, provider, storage).then((repo) => repo.readState("runner").then((data) => {
+            const r = new Runner(st, provider, repo);
             if(data !== null) {
                 try {
                     r.load(data);
                 } catch(e)  {
-                    stat.reportError(api.excData(e));
+                    st.reportError(err.dataOf(e));
                 }
             }
             r.start();
@@ -136,10 +129,10 @@ export default class Runner {
 
     private start(): void {
         if(this.stop_count !== 0 || !!this.stopping) {
-            throw new api.StateError("Runner already started");
+            throw new err.State("Runner already started");
         }
 
-        this.stop_count = 1;
+        this.stop_count = -1;
 
         this.maybeSendResults();
         this.pull();
@@ -147,10 +140,10 @@ export default class Runner {
 
     public stop(): Promise<void> {
         if(this.stopping) {
-            throw new api.StateError("Already stopping Runner");
+            throw new err.State("Already stopping Runner");
         }
         if(this.stop_count === 0) {
-            throw new api.StateError("Runner not started yet");
+            throw new err.State("Runner not started yet");
         }
         const pr = new Promise<void>((resolve, reject) => {
             this.stopping = resolve;
@@ -180,18 +173,18 @@ export default class Runner {
     }
 
     public report() {
-        this.stat.report("Tasks pending", this.tasks_pending.length);
-        this.stat.report("Tasks blocked", this.tasks_blocked.size);
-        this.stat.report("Tasks running", this.tasks_running.size);
-        this.stat.report("Tasks finished", this.tasks_finished.length);
-        this.stat.report("Tasks being sent", this.tasks_sending.size);
+        this.st_pending.set(this.tasks_pending.length);
+        this.st_blocked.set(this.tasks_blocked.size);
+        this.st_running.set(this.tasks_running.size);
+        this.st_finished.set(this.tasks_finished.length);
+        this.st_sending.set(this.tasks_sending.size);
     }
 
     private taskFromAPI(info: api.Task, blobs: Map<string, Ref>): Task {
         function getBlob(id: string): Ref {
             const ref = blobs.get(id);
             if(ref === undefined) {
-                throw new api.StateError("blob_info missing for blob", {
+                throw new err.State("blob_info missing for blob", {
                     task_id: info.id,
                     blob_id: "remote/" + id,
                 });
@@ -216,7 +209,7 @@ export default class Runner {
             for(const info of ts.tasks) {
                 const task = this.taskFromAPI(info, blobs);
                 if(this.tasks.get(task.id)) {
-                    throw new api.StateError("Task already exists", {task_id: task.id});
+                    throw new err.State("Task already exists", {task_id: task.id});
                 }
                 added_tasks.push(task);
                 this.tasks.set(task.id, task);
@@ -242,7 +235,7 @@ export default class Runner {
         this.provider.getTasks().then((tasks) => {
             this.addTaskSet(tasks);
         }).catch((e: Error) => {
-            this.stat.reportError(api.excData(e));
+            this.st.reportError(err.dataOf(e));
         }).finally(() => {
             if(!this.partStop()) {
                 this.requesting_tasks = false;
@@ -254,7 +247,7 @@ export default class Runner {
 
     public maybeRequestTasks() {
         if(this.stopping) return;
-        if(this.stop_count === 0) throw new api.StateError("Not running");
+        if(this.stop_count === 0) throw new err.State("Not running");
         if(this.tasks_pending.length >= this.provider.tasks_pending_min) return;
         if(this.tasks_finished.length >= this.provider.tasks_finished_max) return;
         if(this.requesting_tasks) return;
@@ -341,6 +334,7 @@ export default class Runner {
                         this.repo.unpin(ref);
                     }
                 }
+                this.st_sent.inc();
             }
             this.save(false);
         }, (e: Error) => {
@@ -348,7 +342,7 @@ export default class Runner {
                 this.tasks_sending.delete(t);
                 this.tasks_finished.insertFront(t);
             }
-            this.stat.reportError(api.excData(e));
+            this.st.reportError(err.dataOf(e));
         }).finally(() => {
             if(!this.partStop()) {
                 this.sending_results = false;
@@ -363,7 +357,7 @@ export default class Runner {
 
     public maybeSendResults() {
         if(this.stopping) return;
-        if(this.stop_count === 0) throw new api.StateError("Not running");
+        if(this.stop_count === 0) throw new err.State("Not running");
         if(this.tasks_finished.isEmpty()) return;
         if(this.sending_results) return;
         setTimeout(this.sendResults.bind(this), 0);
@@ -377,8 +371,8 @@ export default class Runner {
         this.report();
     }
 
-    private taskError(t: Task, err: api.ErrorData) {
-        t.setError(err);
+    private taskError(t: Task, e: api.ErrorData) {
+        t.setError(e);
         this.taskFinish(t);
     }
 
@@ -395,7 +389,7 @@ export default class Runner {
             this.taskFinish(t);
         }, (e) => {
             for(const ref of refs) this.repo.unpin(ref);
-            this.taskError(t, api.excData(e));
+            this.taskError(t, err.dataOf(e));
         });
     }
 
@@ -404,8 +398,8 @@ export default class Runner {
             const ref = ctl.get_blob;
             this.repo.read(ref).then((data) => {
                 wrk.sendControl({get_blob: [ref.id, data]}, [data]);
-            }, (err) => {
-                wrk.kill(api.excData(err));
+            }, (e) => {
+                wrk.kill(err.dataOf(e));
             });
         } else {
             wrk.kill("Worker sent unknown control message");
@@ -461,9 +455,9 @@ export default class Runner {
 
             this.report();
             return pr_release;
-        }).catch((err: Error) => {
+        }).catch((e: Error) => {
             this.tasks_blocked.delete(t);
-            this.taskError(t, api.excData(err));
+            this.taskError(t, err.dataOf(e));
             this.report();
         });
 
@@ -529,7 +523,7 @@ export default class Runner {
             // pass
         } else if(d.out_status === "OK") {
             if(d.out_control === undefined || d.out_data === undefined) {
-                throw new api.StateError("Task finished but no data stored");
+                throw new err.State("Task finished but no data stored");
             }
             t.setDone(d.out_control, d.out_data.map((ref) => {
                 const p = this.repo.pin(ref);
@@ -538,7 +532,7 @@ export default class Runner {
             }));
         } else if(d.out_status === "ERROR") {
             if(d.out_error === undefined) {
-                throw new api.StateError("Task failed but no error stored");
+                throw new err.State("Task failed but no error stored");
             }
             t.setError(d.out_error);
         } else if(d.out_status === "REFUSED") {
@@ -553,8 +547,8 @@ export default class Runner {
         try {
             d = rs.loadState(buf);
         } catch(e) {
-            throw new api.StateError("Failed to decode state", {
-                "cause": api.excData(e),
+            throw new err.State("Failed to decode state", {
+                "cause": err.dataOf(e),
             });
         }
 
@@ -578,7 +572,7 @@ export default class Runner {
 
         for(const task of tasks) {
             if(this.tasks.get(task.id)) {
-                this.stat.reportError({
+                this.st.reportError({
                     "kind": "state",
                     "message": "Task already exists",
                     "task_id": task.id,

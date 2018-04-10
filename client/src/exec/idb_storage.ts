@@ -1,5 +1,6 @@
-import * as api from "./api";
-import {Stat} from "./stat";
+import * as err from "../err";
+import * as stat from "../stat";
+
 import {Ref, Storage} from "./storage";
 
 declare interface Entry {
@@ -10,31 +11,29 @@ declare interface Entry {
 
 function idbReject(reject: (e: Error) => void): (event: Event) => void {
     return (event) => {
-        const err = (event.target as IDBRequest).error;
-        if(err instanceof Error) reject(err);
-        reject(new api.RuntimeError(`Operation failed: ${err}`));
+        const e = (event.target as IDBRequest).error;
+        if(e instanceof Error) reject(e);
+        reject(new err.Runtime(`Operation failed: ${e}`));
     };
 }
 
 export default class IDBStorage implements Storage {
-    public readonly stat: Stat;
-    private readonly db: IDBDatabase;
-
-    private constructor(stat: Stat, db: IDBDatabase) {
-        this.stat = stat;
-        this.db = db;
+    private constructor(
+        private readonly st: stat.Sink,
+        private readonly db: IDBDatabase
+    ) {
         db.onversionchange = () => {
             db.close();
         };
     }
 
-    public static create(stat: Stat, name: string): Promise<IDBStorage> {
+    public static create(st: stat.Sink, name: string): Promise<IDBStorage> {
         return new Promise<IDBStorage>((resolve, reject) => {
             const req = indexedDB.open(name, 1);
             req.onerror = idbReject(reject);
-            req.onsuccess = () => resolve(new IDBStorage(stat, req.result));
+            req.onsuccess = () => resolve(new IDBStorage(st, req.result));
             req.onblocked = () => {
-                reject(new api.RuntimeError("Database in use by other process but upgrade needed"));
+                reject(new err.Runtime("Database in use by other process but upgrade needed"));
             };
             req.onupgradeneeded = (ev) => {
                 const db = req.result;
@@ -78,23 +77,23 @@ export default class IDBStorage implements Storage {
                 const k = cursor.key;
                 try {
                     if(typeof k !== "string") {
-                        throw new api.StateError("Invalid data in IDBStorage: size_nl_id key is not string");
+                        throw new err.State("Invalid data in IDBStorage: size_nl_id key is not string");
                     }
                     const i = k.indexOf("\n");
                     if(i === -1) {
-                        throw new api.StateError("Invalid data in IDBStorage: size_nl_key invalid");
+                        throw new err.State("Invalid data in IDBStorage: size_nl_key invalid");
                     }
                     const size = Number(k.slice(0, i));
                     const id = k.slice(i+1);
                     if(size !== Math.floor(size) || size < 0 || id !== cursor.primaryKey) {
-                        throw new api.StateError("Invalid data in IDBStorage: size_nl_key invalid");
+                        throw new err.State("Invalid data in IDBStorage: size_nl_key invalid");
                     }
                     res.push({
                         id: id,
                         size: size,
                     });
                 } catch(e) {
-                    this.stat.reportError(e);
+                    this.st.reportError(e);
                 }
                 try {
                     cursor.continue();
@@ -116,12 +115,12 @@ export default class IDBStorage implements Storage {
             req.onsuccess = (event) => {
                 const res = req.result;
                 if(res === undefined) {
-                    reject(new api.StateError("Blob not found"));
+                    reject(new err.State("Blob not found"));
                     return;
                 }
                 const data = res["data"];
                 if(!(data instanceof ArrayBuffer)) {
-                    reject(new api.StateError("Invalid data in IDBStorage: data not ArrayBuffer DEBUG:" + data));
+                    reject(new err.State("Invalid data in IDBStorage: data not ArrayBuffer DEBUG:" + data));
                     return;
                 }
                 resolve(data);
@@ -141,7 +140,7 @@ export default class IDBStorage implements Storage {
             tr.onerror = idbReject(reject);
             tr.oncomplete = () => {
                 if(ok) resolve(deleted);
-                else reject(tr.error || new api.RuntimeError("Transaction failed"));
+                else reject(tr.error || new err.Runtime("Transaction failed"));
             };
             tr.onerror = () => {
                 reject(tr.error);
@@ -196,7 +195,7 @@ export default class IDBStorage implements Storage {
             tr.onerror = idbReject(reject);
             tr.oncomplete = () => {
                 if(ok) resolve(deleted);
-                else reject(tr.error || new api.RuntimeError("Transaction failed"));
+                else reject(tr.error || new err.Runtime("Transaction failed"));
             };
 
             const store = tr.objectStore("blobs");

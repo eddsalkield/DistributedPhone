@@ -1,25 +1,38 @@
 import Deque from "double-ended-queue";
 
+import * as err from "../err";
+import * as stat from "../stat";
+
 import * as api from "./api";
-import {Stat} from "./stat";
 
 export default class MockAPI implements api.WorkProvider {
-    public readonly stat: Stat | undefined;
+    public readonly req_cnt_blob = new stat.Counter(
+        "MockAPI/requests", {"type": "getBlob"}
+    ).attach(this.st);
+    public readonly req_cnt_tasks = new stat.Counter(
+        "MockAPI/requests", {"type": "requestTasks"}
+    ).attach(this.st);
+    public readonly req_cnt_results = new stat.Counter(
+        "MockAPI/requests", {"type": "sendResults"}
+    ).attach(this.st);
+    public readonly task_cnt_ok = new stat.Counter(
+        "MockAPI/results", {"status": "ok"}
+    ).attach(this.st);
+    public readonly task_cnt_error = new stat.Counter(
+        "MockAPI/results", {"status": "error"}
+    ).attach(this.st);
+    public readonly task_cnt_refused = new stat.Counter(
+        "MockAPI/results", {"status": "refused"}
+    ).attach(this.st);
+    public readonly task_dup_cnt = new stat.Counter(
+        "MockAPI/results_dup"
+    ).attach(this.st);
 
-    public readonly blobs: Map<string, ArrayBuffer>;
-    public readonly tasks: Deque<api.Task>;
-    public readonly results: Map<string, api.TaskResult>;
+    public readonly blobs = new Map<string, ArrayBuffer>();
+    public readonly tasks = new Deque<api.Task>();
+    public readonly results = new Map<string, api.TaskResult>();
 
-    private readonly conditions: Array<[() => boolean, () => void]>;
-
-    public req_cnt_blob = 0;
-    public req_cnt_tasks = 0;
-    public req_cnt_results = 0;
-    public task_cnt = 0;
-    public task_cnt_ok = 0;
-    public task_cnt_error = 0;
-    public task_cnt_refused = 0;
-    public task_dup_cnt = 0;
+    private readonly conditions: Array<[() => boolean, () => void]> = [];
 
     public workers = 8;
     public tasks_pending_min = 100;
@@ -27,27 +40,15 @@ export default class MockAPI implements api.WorkProvider {
     public send_max_bytes = 16384;
     public save_timeout = 1000;
 
-    constructor(stat?: Stat) {
-        this.stat = stat;
-        this.blobs = new Map();
-        this.tasks = new Deque();
-        this.results = new Map();
-        this.conditions = [];
-        this.report();
+    constructor(
+        public readonly st: stat.Sink | null
+    ) {}
+
+    get total_task_cnt(): number {
+        return this.task_cnt_ok.value! + this.task_cnt_error.value! + this.task_cnt_refused.value!;
     }
 
     public report() {
-        if(this.stat !== undefined) {
-            this.stat.report("[MockAPI] Available tasks", this.tasks.length);
-            this.stat.report("[MockAPI] Finished tasks", this.task_cnt);
-            this.stat.report("[MockAPI] Finished tasks [OK]", this.task_cnt_ok);
-            this.stat.report("[MockAPI] Finished tasks [error]", this.task_cnt_error);
-            this.stat.report("[MockAPI] Finished tasks [refused]", this.task_cnt_refused);
-            this.stat.report("[MockAPI] Requests for blobs", this.req_cnt_blob);
-            this.stat.report("[MockAPI] Requests for tasks", this.req_cnt_tasks);
-            this.stat.report("[MockAPI] Requests with results", this.req_cnt_results);
-        }
-
         const cond = this.conditions;
         let i = 0, j = 0;
         for(; i < cond.length; i += 1) {
@@ -72,8 +73,8 @@ export default class MockAPI implements api.WorkProvider {
         return new Promise((resolve, reject) => {
             const data = this.blobs.get(id);
             if(data) resolve(data.slice(0));
-            else reject(new api.StateError("Unknown blob", {blob_id: id}));
-            this.req_cnt_blob += 1;
+            else reject(new err.State("Unknown blob", {blob_id: id}));
+            this.req_cnt_blob.inc();
         });
     }
 
@@ -101,7 +102,7 @@ export default class MockAPI implements api.WorkProvider {
             }
             ts.push(t);
         }
-        this.req_cnt_results += 1;
+        this.req_cnt_results.inc();
         this.report();
         return Promise.resolve({
             tasks: ts,
@@ -112,17 +113,16 @@ export default class MockAPI implements api.WorkProvider {
     public sendTasks(outs: api.TaskResult[]): Promise<void> {
         for(const out of outs) {
             if(this.results.get(out.id) !== undefined) {
-                this.task_dup_cnt += 1;
+                this.task_dup_cnt.inc();
                 continue;
             }
             this.results.set(out.id, out);
-            this.task_cnt += 1;
-            if(out.status === "ok") this.task_cnt_ok += 1;
-            else if(out.status === "error") this.task_cnt_error += 1;
-            else if(out.status === "refused") this.task_cnt_refused += 1;
-            if(out.status === "error") console.log(out.id, out.error);
+
+            if(out.status === "ok") this.task_cnt_ok.inc();
+            else if(out.status === "refused") this.task_cnt_refused.inc();
+            else this.task_cnt_error.inc();
         }
-        this.req_cnt_results += 1;
+        this.req_cnt_results.inc();
         this.report();
         return Promise.resolve();
     }

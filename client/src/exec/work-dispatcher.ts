@@ -1,14 +1,16 @@
 import Deque from "double-ended-queue";
 
+import * as err from "../err";
+import * as stat from "../stat";
+
 import * as api from "./api";
-import {Stat} from "./stat";
 import * as workapi from "./workapi";
 
 type Transferable = ArrayBuffer | MessagePort;
 
 export interface Work {
     onStart(): void;
-    onError(err: api.ErrorData): void;
+    onError(e: api.ErrorData): void;
     onDone(out: workapi.OutResult): void;
     onControl(ctl: workapi.Worker, out: workapi.OutControl): boolean;
     input: workapi.InWork;
@@ -16,23 +18,19 @@ export interface Work {
 }
 
 class WorkerController implements workapi.Worker {
-    public readonly stat: Stat;
-    public readonly id: number;
+    public readonly st: stat.Sink;
 
     public readonly w: Worker;
 
     private work: Work | null = null;
     private ready = true;
-    private dead = false;
-    private message?: string;
 
-    public onDead: () => void = () => {};
+    public onDead: (graceful: boolean) => void = () => {};
     public onReady: () => void = () => {};
     public onControl: (data: workapi.OutControl) => void = (data) => {};
 
-    constructor(stat: Stat, id: number, body: Blob) {
-        this.stat = stat;
-        this.id = id;
+    constructor(st: stat.Sink, body: Blob) {
+        this.st = st;
         const url = URL.createObjectURL(body);
         try {
             this.w = new Worker(url);
@@ -41,21 +39,6 @@ class WorkerController implements workapi.Worker {
         }
         this.w.onerror = this.workerError.bind(this);
         this.w.onmessage = this.workerMessage.bind(this);
-        this.report();
-    }
-
-    public report() {
-        const key = `Worker ${this.id}`;
-        let msg: string;
-        if(this.ready) {
-            msg = "ready";
-        } else if(this.dead) {
-            msg = "dead; " + this.message!;
-            setTimeout(() => this.stat.report(key, null), 1000);
-        } else {
-            msg = "working";
-        }
-        this.stat.report(key, msg);
     }
 
     private send(data: workapi.In, transfer: Transferable[] | undefined) {
@@ -73,43 +56,36 @@ class WorkerController implements workapi.Worker {
             throw e;
         }
         work.onStart();
-        this.report();
     }
 
     public sendControl(data: workapi.InControl, transfer?: Transferable[]) {
         this.send({control: data}, transfer);
     }
 
-    public kill(err: api.ErrorData | string) {
-        if(typeof err === "string") {
-            err = {
+    public kill(e: api.ErrorData | string) {
+        if(typeof e === "string") {
+            e = {
                 "kind": "runtime",
-                "message": err,
+                "message": e,
             };
         }
         this.ready = false;
-        this.dead = true;
-        this.message = err.message;
         this.w.terminate();
-        this.onDead();
+        this.onDead(false);
         const work = this.work;
         if(work) {
             this.work = null;
-            work.onError(err);
+            work.onError(e);
         } else {
-            this.stat.reportError(err);
+            this.st.reportError(e);
         }
-        this.report();
     }
 
     public stop() {
         console.assert(this.work === null);
         this.ready = false;
-        this.dead = true;
-        this.message = "Stopped";
         this.w.terminate();
-        this.onDead();
-        this.report();
+        this.onDead(true);
     }
 
     private workerError() {
@@ -146,12 +122,11 @@ class WorkerController implements workapi.Worker {
                 this.kill("Worker sent invalid message");
                 return;
             }
-            this.report();
         } catch(e) {
             this.kill({
                 kind: "runtime",
                 message: "Worker message caused exception",
-                cause: api.excData(e.message),
+                cause: err.dataOf(e.message),
             });
             return;
         }
@@ -161,14 +136,29 @@ class WorkerController implements workapi.Worker {
 const const_0 = () => 0;
 
 export default class WorkDispatcher {
-    private readonly stat: Stat;
-    private readonly worker_body: Blob;
+    private readonly st_work = new stat.Metric<number>(
+        "WorkDispatcher/work_queue_size"
+    ).attach(this.st);
+    private readonly st_workers = new stat.Metric<number>(
+        "WorkDispatcher/workers"
+    ).attach(this.st);
+    private readonly st_workers_free = new stat.Metric<number>(
+        "WorkDispatcher/workers_free"
+    ).attach(this.st);
+    private readonly st_workers_started = new stat.Counter(
+        "WorkDispatcher/workers_started"
+    ).attach(this.st);
+    private readonly st_workers_stopped = new stat.Counter(
+        "WorkDispatcher/workers_stopped", {"graceful": true}
+    ).attach(this.st);
+    private readonly st_workers_killed = new stat.Counter(
+        "WorkDispatcher/workers_stopped", {"graceful": false}
+    ).attach(this.st);
 
-    private readonly workers: Set<WorkerController>;
-    private workers_free: WorkerController[];
-    private worker_counter: number;
+    private readonly workers = new Set<WorkerController>();
+    private workers_free: WorkerController[] = [];
 
-    private readonly work: Deque<Work>;
+    private readonly work = new Deque<Work>();
 
     private stopping?: () => void;
 
@@ -176,21 +166,14 @@ export default class WorkDispatcher {
     public onRequest: () => void = () => undefined;
     public onControl: (wrk: workapi.Worker, data: workapi.OutControl) => void = () => {};
 
-    constructor(stat: Stat, worker_body: Blob) {
-        this.stat = stat;
-
-        this.workers = new Set();
-        this.workers_free = [];
-        this.worker_counter = 0;
-        this.work = new Deque();
-
-        this.worker_body = worker_body;
-        this.report();
-    }
+    constructor(
+        private readonly st: stat.Sink,
+        private readonly worker_body: Blob
+    ) {}
 
     public stop(): Promise<void> {
         if(this.stopping) {
-            throw new api.StateError("Already stopping WorkManager");
+            throw new err.State("Already stopping WorkManager");
         }
 
         return new Promise((resolve,reject) => {
@@ -211,15 +194,16 @@ export default class WorkDispatcher {
     }
 
     public report() {
-        this.stat.report("Work queue size", this.work.length);
-        this.stat.report("Workers", this.workers.size);
-        this.stat.report("Workers free", this.workers_free.length);
+        this.st_work.set(this.work.length);
+        this.st_workers.set(this.workers.size);
+        this.st_workers_free.set(this.workers_free.length);
     }
 
     public addWorker() {
-        const id = this.worker_counter;
-        this.worker_counter = id + 1;
-        const wrk = new WorkerController(this.stat, id, this.worker_body);
+        const wrk = new WorkerController(this.st, this.worker_body);
+
+        this.st_workers_started.inc();
+
         wrk.onReady = () => {
             console.assert(this.workers.has(wrk));
             console.assert(this.workers_free.indexOf(wrk) === -1);
@@ -238,20 +222,25 @@ export default class WorkDispatcher {
             if(this.work.length < this.workers.size/2) {
                 this.onRequest();
             }
+
             this.report();
         };
 
-        wrk.onDead = () => {
+        wrk.onDead = (normal: boolean) => {
             const i = this.workers_free.indexOf(wrk);
             if(i !== -1) this.workers_free.splice(i, 1);
             console.assert(this.workers.delete(wrk));
 
-            if(!this.work.isEmpty() && this.workers.size < this.maxWorkers()) {
-                this.addWorker();
+            if(normal) {
+                this.st_workers_stopped.inc();
+            } else {
+                this.st_workers_killed.inc();
             }
 
             if(this.stopping && this.workers.size === 0) {
                 this.stopping();
+            } else if(!this.work.isEmpty() && this.workers.size < this.maxWorkers()) {
+                this.addWorker();
             }
 
             this.report();

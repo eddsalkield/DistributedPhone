@@ -47,7 +47,7 @@ module.exports = function(env, argv) {
 
   as_worker.entry["worker"] =  "./src/worker/worker.ts";
 
-  as_dom.entry["index"] =  "./index.ts";
+  as_dom.entry["index"] =  "./src/index.ts";
   if(env.tests) {
     as_dom.entry["exec-test-rig"] = "./src/exec/test-rig.ts";
     as_dom.entry["test-exec-runner"] = "./src/exec/tests/runner.ts";

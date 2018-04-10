@@ -7,7 +7,6 @@
     "double-ended-queue": "*"
   },
   "devDependencies": {
-    "@types/text-encoding": "*",
     "@types/webassembly-js-api": "*",
     "raw-loader": "*",
     "ts-loader": "*",

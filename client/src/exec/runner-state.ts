@@ -71,9 +71,10 @@ function readError(r: cbor.Reader): api.ErrorData {
         const k = r.maybeString();
         if(k === null) break;
 
-        let v: number | string | api.ErrorData;
-        if(r.isNumber()) v = r.number();
-        else if(r.isString()) v = r.string();
+        let v: string | number | boolean | api.ErrorData;
+        if(r.isString()) v = r.string();
+        else if(r.isNumber()) v = r.number();
+        else if(r.isSimple()) v = r.boolean();
         else v = readError(r);
         d[k] = v;
     }
@@ -132,8 +133,9 @@ function writeError(w: cbor.Writer, d: api.ErrorData): void {
     for(const k of ks) {
         w.string(k);
         const v = d[k];
-        if(typeof v === "number") w.number(v);
-        else if(typeof v === "string") w.string(v);
+        if(typeof v === "string") w.string(v);
+        else if(typeof v === "number") w.number(v);
+        else if(typeof v === "boolean") w.boolean(v);
         else writeError(w, v);
     }
     w.end();

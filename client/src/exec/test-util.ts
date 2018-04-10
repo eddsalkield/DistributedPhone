@@ -1,11 +1,12 @@
 import Runner from "./runner";
 
-import * as api from "./api";
+import * as err from "../err";
+import * as stat from "../stat";
+
 import MockAPI from "./mock_api";
-import {Stat} from "./stat";
 import {Storage} from "./storage";
 
-export class TestStat implements Stat {
+export class TestTSDB implements stat.TSDB {
     public rejected: boolean;
     public readonly reject: (_: Error) => void;
 
@@ -14,12 +15,16 @@ export class TestStat implements Stat {
         this.reject = reject;
     }
 
-    public report(key: string, value: string | number | null): void {}
+    public write(at: number, data: stat.Point[]): void {
+        for(const d of data) {
+            console.log(d);
+        }
+    }
 
-    public reportError(e: api.ErrorData): void {
+    public writeError(at: number, e: err.Data): void {
         if(this.rejected) return;
         this.rejected = true;
-        this.reject(api.BaseError.fromData(e));
+        this.reject(err.fromData(e));
     }
 }
 
@@ -50,16 +55,17 @@ export function writeLine(text: string) {
     self.document.body.appendChild(self.document.createElement("br"));
 }
 
-export function withStat<T>(f: (s: Stat) => Promise<T>): Promise<T> {
+export function withStat<T>(f: (s: stat.Sink) => Promise<T>): Promise<T> {
     return new Promise<T>((resolve, reject) => {
-        const the_stat = new TestStat(reject);
+        const the_tsdb = new TestTSDB(reject);
+        const the_stat = new stat.Root(the_tsdb);
         Promise.resolve(the_stat).then(f).then((v) => {
             setTimeout(() => {
-                if(!the_stat.rejected) resolve(v);
+                if(!the_tsdb.rejected) resolve(v);
             }, 500);
         }, (e) => {
-            if(!the_stat.rejected) {
-                the_stat.rejected = true;
+            if(!the_tsdb.rejected) {
+                the_tsdb.rejected = true;
                 reject(e);
             }
         });

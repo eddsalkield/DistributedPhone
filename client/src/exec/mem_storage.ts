@@ -1,4 +1,4 @@
-import * as api from "./api";
+import * as err from "../err";
 import {Ref, Storage} from "./storage";
 
 export default class MemStorage implements Storage {
@@ -21,7 +21,7 @@ export default class MemStorage implements Storage {
         return new Promise((resolve, reject) => {
             const bl = this.blobs.get(id);
             if(bl) resolve(bl.slice(0));
-            else reject(new api.StateError("Blob not found", {blob_id: id}));
+            else reject(new err.State("Blob not found", {blob_id: id}));
         });
     }
 
