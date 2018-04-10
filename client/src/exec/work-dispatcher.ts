@@ -3,18 +3,18 @@ import Deque from "double-ended-queue";
 import * as err from "../err";
 import * as stat from "../stat";
 
-import * as api from "./api";
 import * as workapi from "./workapi";
 
 type Transferable = ArrayBuffer | MessagePort;
 
 export interface Work {
     onStart(): void;
-    onError(e: api.ErrorData): void;
+    onError(e: Error): void;
     onDone(out: workapi.OutResult): void;
     onControl(ctl: workapi.Worker, out: workapi.OutControl): boolean;
     input: workapi.InWork;
     transfer?: Transferable[];
+    cancelled?: boolean;
 }
 
 class WorkerController implements workapi.Worker {
@@ -62,12 +62,9 @@ class WorkerController implements workapi.Worker {
         this.send({control: data}, transfer);
     }
 
-    public kill(e: api.ErrorData | string) {
+    public kill(e: Error | string) {
         if(typeof e === "string") {
-            e = {
-                "kind": "runtime",
-                "message": e,
-            };
+            e = new err.Runtime(e);
         }
         this.ready = false;
         this.w.terminate();
@@ -77,7 +74,7 @@ class WorkerController implements workapi.Worker {
             this.work = null;
             work.onError(e);
         } else {
-            this.st.reportError(e);
+            this.st.reportError(err.dataOf(e));
         }
     }
 
@@ -112,7 +109,7 @@ class WorkerController implements workapi.Worker {
                     return;
                 }
                 this.work = null;
-                work.onError(data.error);
+                work.onError(err.fromData(data.error));
                 this.ready = true;
                 this.onReady();
             } else if(data.control) {
@@ -123,19 +120,17 @@ class WorkerController implements workapi.Worker {
                 return;
             }
         } catch(e) {
-            this.kill({
-                kind: "runtime",
-                message: "Worker message caused exception",
+            this.kill(new err.Runtime("Worker message caused exception", {
                 cause: err.dataOf(e.message),
-            });
+            }));
             return;
         }
     }
 }
 
-const const_0 = () => 0;
+const const_1 = () => 1;
 
-export default class WorkDispatcher {
+export class WorkDispatcher {
     private readonly st_work = new stat.Metric<number>(
         "WorkDispatcher/work_queue_size"
     ).attach(this.st);
@@ -160,9 +155,7 @@ export default class WorkDispatcher {
 
     private readonly work = new Deque<Work>();
 
-    private stopping?: () => void;
-
-    public maxWorkers: () => number = const_0;
+    public maxWorkers: () => number = const_1;
     public onControl: (wrk: workapi.Worker, data: workapi.OutControl) => void = () => {};
 
     constructor(
@@ -170,35 +163,21 @@ export default class WorkDispatcher {
         private readonly worker_body: Blob
     ) {}
 
-    public stop(): Promise<void> {
-        if(this.stopping) {
-            throw new err.State("Already stopping WorkManager");
-        }
-
-        return new Promise((resolve,reject) => {
-            this.maxWorkers = const_0;
-            this.stopping = resolve;
-
-            if(this.workers_free.length === 0 && this.workers.size === 0) {
-                this.stopping();
-                return;
-            }
-
-            while(true) {
-                const w = this.workers_free.pop();
-                if(!w) break;
-                w.stop();
-            }
-        });
-    }
-
     public report() {
         this.st_work.set(this.work.length);
         this.st_workers.set(this.workers.size);
         this.st_workers_free.set(this.workers_free.length);
     }
 
-    public addWorker() {
+    private get _max_workers(): number {
+        const w = this.maxWorkers() | 0;
+        if(w < 1) return 1;
+        if(w > 128) return 128;
+        return w;
+    }
+
+    private kill_timer: number | null = null;
+    private addWorker() {
         const wrk = new WorkerController(this.st, this.worker_body);
 
         this.st_workers_started.inc();
@@ -207,16 +186,34 @@ export default class WorkDispatcher {
             console.assert(this.workers.has(wrk));
             console.assert(this.workers_free.indexOf(wrk) === -1);
 
-            if(this.workers.size > this.maxWorkers()) {
+            if(this.workers.size > this._max_workers) {
                 wrk.stop();
                 return;
             }
 
-            const w = this.work.dequeue();
-            if(w) {
-                wrk.setWork(w);
-            } else {
+            let w: Work | undefined;
+            while(true) {
+                w = this.work.dequeue();
+                if(w === undefined || !w.cancelled) break;
+                w.onError(new err.Cancelled("Task cancelled"));
+            }
+
+            if(w === undefined) {
                 this.workers_free.push(wrk);
+                if(this.kill_timer === null) {
+                    const tm = setInterval(() => {
+                        const wrk = this.workers_free.pop();
+                        if(wrk === undefined) {
+                            clearInterval(tm);
+                            this.kill_timer = null;
+                        } else {
+                            wrk.stop();
+                        }
+                    }, 1000);
+                    this.kill_timer = tm;
+                }
+            } else {
+                wrk.setWork(w);
             }
 
             this.report();
@@ -233,9 +230,7 @@ export default class WorkDispatcher {
                 this.st_workers_killed.inc();
             }
 
-            if(this.stopping && this.workers.size === 0) {
-                this.stopping();
-            } else if(!this.work.isEmpty() && this.workers.size < this.maxWorkers()) {
+            if(!this.work.isEmpty() && this.workers.size < this._max_workers) {
                 this.addWorker();
             }
 
@@ -250,17 +245,20 @@ export default class WorkDispatcher {
         wrk.onReady();
     }
 
-    public push(w: Work) {
+    public push(w: Work): () => void {
         const wrk = this.workers_free.pop();
         if(wrk) {
             console.assert(this.work.isEmpty());
             wrk.setWork(w);
         } else {
             this.work.push(w);
-            if(this.workers.size < this.maxWorkers()) {
+            if(this.workers.size < this._max_workers) {
                 this.addWorker();
             }
         }
         this.report();
+        return () => {
+            w.cancelled = true;
+        };
     }
 }

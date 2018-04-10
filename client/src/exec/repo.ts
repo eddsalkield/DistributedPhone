@@ -6,6 +6,8 @@ import * as stat from "../stat";
 import * as api from "./api";
 import {Ref, Storage} from "./storage";
 
+type BlobCallback = (_: Error | null) => void;
+
 interface BlobState {
     ref: Ref;
     available: boolean;
@@ -18,7 +20,7 @@ interface BlobState {
     /* Functions to call when the blob becomes available. null if the blob will
      * not become available (so it must be downloaded), or if it is already
      * available. */
-    on_available: Array<(_: Error | null) => void> | null;
+    on_available: BlobCallback[] | null;
 }
 
 /* BlobRepo implements the bookkeeping related to downloading and storing
@@ -32,8 +34,6 @@ export class BlobRepo {
     private dl_max: number = 3;
 
     private local_counter: number = 0;
-
-    private stopping?: () => void;
 
     constructor(
         private readonly st: stat.Sink,
@@ -100,21 +100,10 @@ export class BlobRepo {
         return;
     }
 
-    public stop(): Promise<void> {
-        if(this.stopping) {
-            throw new err.State("Already stopping");
-        }
-        return new Promise((resolve, reject) => {
-            this.stopping = resolve;
-            this.dl_cur += 1;
-            this.dlDone();
-        });
-    }
-
     /* Make the blobs available, call f() with them available. The blobs will
      * be available until the promise returned by f() is resolved, and that will
      * be the final result. */
-    public withBlobs<T>(refs: Ref[], f: () => Promise<T>): Promise<T> {
+    public withBlobs<T>(refs: Ref[], f: () => Promise<T>): [Promise<T>, () => void] {
         const blobs: BlobState[] = [];
         const unavail: Array<[BlobState, number]> = [];
         try {
@@ -127,7 +116,7 @@ export class BlobRepo {
                 }
             }
         } catch(e) {
-            return Promise.reject(e);
+            return [Promise.reject(e), () => undefined];
         }
 
         // TODO: If there isn't enough space for the blobs in `unavail`, add the
@@ -137,7 +126,9 @@ export class BlobRepo {
             blob.refcnt += 1;
         }
 
-        return new Promise<T>((resolve, reject) => {
+        let cb_cancel: () => void;
+
+        const pr = new Promise<T>((resolve, reject) => {
             let pending = 1 + unavail.length;
             const cb = (e: Error | null) => {
                 if(pending === -1) return;
@@ -159,9 +150,21 @@ export class BlobRepo {
                 resolve(res);
             };
 
+            const callbacks: Array<[BlobState, BlobCallback]> = [];
+
+            cb_cancel = () => {
+                if(pending === -1) return;
+                pending = -1;
+                for(const [blob, cb_this] of callbacks) {
+                    const cbs = blob.on_available!;
+                    cbs.splice(cbs.indexOf(cb_this), 1);
+                }
+                reject(new err.Cancelled("Blob downloading cancelled"));
+            };
+
             const will_download: BlobState[] = [];
             for(const [blob,want_size] of unavail) {
-                const cb_this = (e: Error | null) => {
+                const cb_this: BlobCallback = (e) => {
                     console.assert(e !== null || blob.available);
                     if(!e && blob.ref.size !== want_size) {
                         e = new err.State("Blob size mismatch", {
@@ -179,6 +182,7 @@ export class BlobRepo {
                 } else {
                     blob.on_available.push(cb_this);
                 }
+                callbacks.push([blob, cb_this]);
             }
 
             cb(null);
@@ -190,6 +194,8 @@ export class BlobRepo {
                 blob.refcnt -= 1;
             }
         });
+
+        return [pr, cb_cancel!];
     }
 
     /* Read a blob that is known to be available. */
@@ -329,7 +335,6 @@ export class BlobRepo {
     /* Enqueue blobs for downloading */
     private download(blobs: BlobState[]): void {
         if(blobs.length === 0) return;
-        if(this.stopping) return;
         const dlqp = this.dlq_counter;
         this.dlq_counter = dlqp + 1;
         for(const blob of blobs) {
@@ -340,21 +345,10 @@ export class BlobRepo {
         this.dlPull();
     }
 
-    private dlDone(): void {
-        this.dl_cur -= 1;
-        if(this.stopping) {
-            if(this.dl_cur === 0) {
-                this.stopping();
-            }
-            return;
-        }
-        this.dlPull();
-    }
-
     private dlPull(): void {
         while(this.dl_cur < this.dl_max) {
             const bl = this.dlq.dequeue();
-            if(!bl) break;
+            if(bl === undefined) break;
             // TODO: check data limit
             this.dlOne(bl);
         }
@@ -363,12 +357,14 @@ export class BlobRepo {
     private dlOne(blob: BlobState): void {
         const id = blob.ref.id;
 
+        const cbs = blob.on_available;
+        if(cbs === null || cbs.length === 0) return;
+
         const fin = (e: Error | null) => {
             if(this.dl_cur === 0 && this.dlq.isEmpty()) {
                 this.dlq_counter = 0;
             }
 
-            const cbs = blob.on_available!;
             blob.on_available = null;
             blob.dlqp = -1;
 
@@ -414,7 +410,10 @@ export class BlobRepo {
                     return;
                 }
                 fin(e);
-            }).finally(() => this.dlDone());
+            }).finally(() => {
+                this.dl_cur -= 1;
+                this.dlPull();
+            });
         } catch(e) {
             fin(e);
         }

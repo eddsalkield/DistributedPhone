@@ -84,7 +84,7 @@ export default class MockAPI implements api.WorkProvider {
                 setTimeout(() => resolve({
                     tasks: [],
                     blob_info: new Map(),
-                }), 100 * Math.random());
+                }), 500 * Math.random());
             });
         }
 

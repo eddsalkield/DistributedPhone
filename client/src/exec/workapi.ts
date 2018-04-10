@@ -41,5 +41,5 @@ export interface Out {
 
 export interface Worker {
     sendControl(data: InControl, transfer?: any): void;
-    kill(err: ErrorData | string): void;
+    kill(e: Error | string): void;
 }

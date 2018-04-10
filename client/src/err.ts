@@ -46,6 +46,10 @@ export class Network extends Runtime {
     public static readonly kind: string = "network";
 }
 
+export class Cancelled extends Base {
+    public static readonly kind: string = "cancelled";
+}
+
 export function fromData(d: Data): Base {
     d = Object.assign({}, d);
     const k = d["kind"];
@@ -59,6 +63,8 @@ export function fromData(d: Data): Base {
         kind = Validation;
     } else if(k === "network") {
         kind = Network;
+    } else if(k === "cancelled") {
+        kind = Cancelled;
     } else {
         kind = Runtime;
     }

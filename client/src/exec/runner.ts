@@ -6,7 +6,7 @@ import * as stat from "../stat";
 import * as api from "./api";
 import {BlobRepo} from "./repo";
 import {Ref, Storage} from "./storage";
-import WorkDispatcher from "./work-dispatcher";
+import {Work, WorkDispatcher} from "./work-dispatcher";
 import * as workapi from "./workapi";
 
 import * as rs from "./runner-state";
@@ -32,6 +32,8 @@ class Task {
     public out_control?: ArrayBuffer;
     public out_data?: Ref[];
     public out_error?: api.ErrorData;
+
+    public tryCancel?: () => void;
 
     constructor(
         id: string, project: string, program: Ref,
@@ -92,7 +94,8 @@ export default class Runner {
 
     /* Tasks with no result yet. */
     private tasks_pending = new Set<Task>();
-    /* Tasks waiting for data to be downloaded. */
+    /* Tasks waiting for data to be downloaded. The value is a cancellation
+     * function. */
     private tasks_blocked = new Set<Task>();
     /* Tasks being processed by workers. */
     private tasks_running = new Set<Task>();
@@ -107,7 +110,7 @@ export default class Runner {
 
     /* If not stopping, `undefined`. Otherwise, callback indicating that the
      * Runner has stopped. Invoke through `partStop()`. */
-    private stopping?: () => void;
+    private stop_cb?: () => void;
     /* If running, `-1`. Otherwise, the number of remaining calls to
      * `partStop()` expected. */
     private stop_count: number = 0;
@@ -136,8 +139,20 @@ export default class Runner {
         }));
     }
 
+    public get is_running(): boolean {
+        return this.stop_count === -1;
+    }
+
+    public get is_stopped(): boolean {
+        return this.stop_count === 0 && this.stop_cb === undefined;
+    }
+
+    public get is_stopping(): boolean {
+        return this.stop_cb !== undefined;
+    }
+
     private start(): void {
-        if(this.stop_count !== 0 || this.stopping !== undefined) {
+        if(!this.is_stopped) {
             throw new err.State("Runner already started");
         }
 
@@ -152,40 +167,37 @@ export default class Runner {
     }
 
     public stop(): Promise<void> {
-        if(this.stopping !== undefined) {
+        if(this.stop_cb !== undefined) {
             throw new err.State("Already stopping Runner");
         }
         if(this.stop_count === 0) {
             throw new err.State("Runner not started yet");
         }
         const pr = new Promise<void>((resolve, reject) => {
-            this.stopping = resolve;
+            this.stop_cb = resolve;
         });
 
-        this.stop_count = 2;
+        this.stop_count = this.tasks_pending.size;
         if(this.requesting_tasks) this.stop_count += 1;
         if(this.sending_results) this.stop_count += 1;
 
-        this.dispatcher.stop().then(() => {
-            console.assert(this.partStop());
-        });
-
-        this.repo.stop().then(() => {
-            console.assert(this.partStop());
-        });
+        for(const t of this.tasks_pending) {
+            const f = t.tryCancel;
+            if(f !== undefined) f();
+        }
 
         return pr.then(() => this.save(true)).then(() => {
-            delete this.stopping;
+            delete this.stop_cb;
         });
     }
 
     /* Indicate a component is ready to stop. Returns `true` iff the component
      * should stop. */
     private partStop(): boolean {
-        if(this.stopping === undefined) return false;
+        if(this.stop_cb === undefined) return false;
         console.assert(this.stop_count > 0);
         this.stop_count -= 1;
-        if(this.stop_count === 0) this.stopping();
+        if(this.stop_count === 0) this.stop_cb();
         return true;
     }
 
@@ -264,8 +276,10 @@ export default class Runner {
     }
 
     public maybeRequestTasks() {
-        if(this.stopping !== undefined) return;
-        if(this.stop_count === 0) throw new err.State("Not running");
+        if(!this.is_running) {
+            if(this.is_stopping) return;
+            throw new err.State("Not running");
+        }
         if(this.tasks_pending.size >= this.provider.tasks_pending_min) return;
         if(this.tasks_finished.length >= this.provider.tasks_finished_max) return;
         if(this.requesting_tasks) return;
@@ -279,7 +293,7 @@ export default class Runner {
             const blobs = t.out_data!;
             return this.repo.withBlobs(blobs,
                 () => Promise.all(blobs.map((blob) => this.repo.read(blob)))
-            ).then((data) => {
+            )[0].then((data) => {
                 const res: api.TaskResultOK = {
                     id: t.id,
                     status: "ok",
@@ -373,8 +387,10 @@ export default class Runner {
     }
 
     public maybeSendResults() {
-        if(this.stopping !== undefined) return;
-        if(this.stop_count === 0) throw new err.State("Not running");
+        if(!this.is_running) {
+            if(this.is_stopping) return;
+            throw new err.State("Not running");
+        }
         if(this.tasks_finished.isEmpty()) return;
         if(this.sending_results) return;
         setTimeout(this.sendResults.bind(this), 0);
@@ -385,13 +401,19 @@ export default class Runner {
         this.tasks_pending.delete(t);
         this.tasks_finished.enqueue(t);
         this.save(false);
+        if(this.partStop()) return;
         this.maybeRequestTasks();
         this.maybeSendResults();
         this.report();
     }
 
-    private taskError(t: Task, e: api.ErrorData) {
-        t.setError(e);
+    private taskError(t: Task, e: Error) {
+        if(e instanceof err.Cancelled) {
+            if(this.partStop()) return;
+            t.setRefused();
+        } else {
+            t.setError(err.dataOf(e));
+        }
         this.taskFinish(t);
     }
 
@@ -408,7 +430,7 @@ export default class Runner {
             this.taskFinish(t);
         }, (e) => {
             for(const ref of refs) this.repo.unpin(ref);
-            this.taskError(t, err.dataOf(e));
+            this.taskError(t, e);
         });
     }
 
@@ -418,7 +440,7 @@ export default class Runner {
             this.repo.read(ref).then((data) => {
                 wrk.sendControl({get_blob: [ref.id, data]}, [data]);
             }, (e) => {
-                wrk.kill(err.dataOf(e));
+                wrk.kill(e);
             });
         } else {
             wrk.kill("Worker sent unknown control message");
@@ -428,14 +450,22 @@ export default class Runner {
 
     private newTask(t: Task) {
         this.tasks_pending.add(t);
-        if(this.stop_count === -1) {
+        if(this.is_running) {
             this.startTask(t);
         }
     }
 
     private startTask(t: Task) {
+        if(this.tasks_blocked.has(t)) {
+            throw new err.State("Task already started", {
+                "task_id": t.id,
+            });
+        }
+
         this.tasks_blocked.add(t);
-        this.repo.withBlobs([t.program].concat(t.in_blobs), () => {
+
+        const [pr, cb_cancel] = this.repo.withBlobs([t.program].concat(t.in_blobs), () => {
+            delete t.tryCancel;
             this.tasks_blocked.delete(t);
 
             let releasefunc: undefined | (() => void);
@@ -450,7 +480,7 @@ export default class Runner {
                 r();
             };
 
-            this.dispatcher.push({
+            const work: Work = {
                 input: {
                     program: t.program,
                     control: t.in_control,
@@ -465,7 +495,7 @@ export default class Runner {
                     this.tasks_running.delete(t);
                     this.taskDone(t, data.control, data.data);
                 },
-                onError: (e: api.ErrorData) => {
+                onError: (e: Error) => {
                     release();
                     this.tasks_running.delete(t);
                     this.taskError(t, e);
@@ -477,17 +507,22 @@ export default class Runner {
                     }
                     return false;
                 },
-            });
+            };
+
+            t.tryCancel = this.dispatcher.push(work);
 
             this.report();
             return pr_release;
-        }).catch((e: Error) => {
-            this.tasks_blocked.delete(t);
-            this.taskError(t, err.dataOf(e));
-            this.report();
         });
 
-        return true;
+        t.tryCancel = cb_cancel;
+
+        pr.catch((e: Error) => {
+            this.tasks_blocked.delete(t);
+            delete t.tryCancel;
+            this.taskError(t, e);
+            this.report();
+        });
     }
 
     private save_cur: Promise<void> = Promise.resolve();
