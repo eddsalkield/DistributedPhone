@@ -90,7 +90,7 @@ export default class Runner {
 
     private tasks = new Map<string, Task>();
 
-    private tasks_pending = new Deque<Task>();
+    private tasks_pending = new Set<Task>();
     private tasks_blocked = new Set<Task>();
     private tasks_running = new Set<Task>();
     private tasks_finished = new Deque<Task>();
@@ -108,7 +108,6 @@ export default class Runner {
         private readonly repo: BlobRepo
     ) {
         this.dispatcher.maxWorkers = () => provider.workers;
-        this.dispatcher.onRequest = this.pull.bind(this);
         this.dispatcher.onControl = this.onControl.bind(this);
     }
 
@@ -128,14 +127,18 @@ export default class Runner {
     }
 
     private start(): void {
-        if(this.stop_count !== 0 || !!this.stopping) {
+        if(this.stop_count !== 0 || this.stopping !== undefined) {
             throw new err.State("Runner already started");
         }
 
         this.stop_count = -1;
 
+        for(const t of this.tasks_pending) {
+            this.startTask(t);
+        }
+
+        this.maybeRequestTasks();
         this.maybeSendResults();
-        this.pull();
     }
 
     public stop(): Promise<void> {
@@ -165,7 +168,7 @@ export default class Runner {
     }
 
     private partStop(): boolean {
-        if(!this.stopping) return false;
+        if(this.stopping === undefined) return false;
         console.assert(this.stop_count > 0);
         this.stop_count -= 1;
         if(this.stop_count === 0) this.stopping();
@@ -173,7 +176,7 @@ export default class Runner {
     }
 
     public report() {
-        this.st_pending.set(this.tasks_pending.length);
+        this.st_pending.set(this.tasks_pending.size);
         this.st_blocked.set(this.tasks_blocked.size);
         this.st_running.set(this.tasks_running.size);
         this.st_finished.set(this.tasks_finished.length);
@@ -222,11 +225,10 @@ export default class Runner {
         }
 
         for(const task of added_tasks) {
-            this.tasks_pending.enqueue(task);
+            this.newTask(task);
         }
 
         this.save(true);
-        this.pull();
     }
 
     private requestTasks() {
@@ -248,7 +250,7 @@ export default class Runner {
     public maybeRequestTasks() {
         if(this.stopping) return;
         if(this.stop_count === 0) throw new err.State("Not running");
-        if(this.tasks_pending.length >= this.provider.tasks_pending_min) return;
+        if(this.tasks_pending.size >= this.provider.tasks_pending_min) return;
         if(this.tasks_finished.length >= this.provider.tasks_finished_max) return;
         if(this.requesting_tasks) return;
         setTimeout(this.requestTasks.bind(this), 0);
@@ -297,7 +299,7 @@ export default class Runner {
         let space_left = this.provider.send_max_bytes;
         while(space_left >= 0) {
             const t = this.tasks_finished.peekFront();
-            if(!t) break;
+            if(t === undefined) break;
 
             space_left -= 32;
             if(t.out_status === TaskStatus.OK) {
@@ -346,8 +348,8 @@ export default class Runner {
         }).finally(() => {
             if(!this.partStop()) {
                 this.sending_results = false;
-                this.maybeSendResults();
                 this.maybeRequestTasks();
+                this.maybeSendResults();
             }
 
             this.report();
@@ -365,8 +367,10 @@ export default class Runner {
     }
 
     private taskFinish(t: Task) {
+        this.tasks_pending.delete(t);
         this.tasks_finished.enqueue(t);
         this.save(false);
+        this.maybeRequestTasks();
         this.maybeSendResults();
         this.report();
     }
@@ -405,6 +409,13 @@ export default class Runner {
             wrk.kill("Worker sent unknown control message");
         }
         return;
+    }
+
+    private newTask(t: Task) {
+        this.tasks_pending.add(t);
+        if(this.stop_count === -1) {
+            this.startTask(t);
+        }
     }
 
     private startTask(t: Task) {
@@ -462,20 +473,6 @@ export default class Runner {
         });
 
         return true;
-    }
-
-    private pull() {
-        if(this.stopping) return;
-
-        let req = this.dispatcher.want - this.tasks_blocked.size;
-        while(req > 0) {
-            const t = this.tasks_pending.dequeue();
-            if(!t) break;
-            this.startTask(t);
-            req -= 1;
-        }
-        this.maybeRequestTasks();
-        this.report();
     }
 
     private save_cur: Promise<void> = Promise.resolve();
@@ -582,9 +579,9 @@ export default class Runner {
 
             this.tasks.set(task.id, task);
             if(task.out_status === undefined) {
-                this.tasks_pending.push(task);
+                this.newTask(task);
             } else {
-                this.tasks_finished.push(task);
+                this.tasks_finished.enqueue(task);
             }
         }
     }

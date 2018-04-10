@@ -163,7 +163,6 @@ export default class WorkDispatcher {
     private stopping?: () => void;
 
     public maxWorkers: () => number = const_0;
-    public onRequest: () => void = () => undefined;
     public onControl: (wrk: workapi.Worker, data: workapi.OutControl) => void = () => {};
 
     constructor(
@@ -219,9 +218,6 @@ export default class WorkDispatcher {
             } else {
                 this.workers_free.push(wrk);
             }
-            if(this.work.length < this.workers.size/2) {
-                this.onRequest();
-            }
 
             this.report();
         };
@@ -252,10 +248,6 @@ export default class WorkDispatcher {
 
         this.workers.add(wrk);
         wrk.onReady();
-    }
-
-    public get want(): number {
-        return Math.max(1, this.workers.size - this.work.length + this.workers_free.length);
     }
 
     public push(w: Work) {
