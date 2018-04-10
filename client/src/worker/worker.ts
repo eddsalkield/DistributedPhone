@@ -112,12 +112,20 @@ function abi1(
             const size = data.byteLength;
             console.assert(size === in_data[i].size);
             const addr = inst.exports.pptw1_malloc(size);
-            new Uint32Array(mem.buffer, addr_in + (3 + 2*i) * 4, 2).set([addr, size]);
+
+            const view = new DataView(mem.buffer, addr_in + (3 + 2*i) * 4, 2 * 4);
+            view.setUint32(0, addr, true);
+            view.setUint32(4, size, true);
             new Uint8Array(mem.buffer, addr, size).set(new Uint8Array(data));
         }));
     }
 
-    new Uint32Array(mem.buffer, addr_in, 3).set([addr_control, in_control.byteLength, in_data.length]);
+    {
+        const view = new DataView(mem.buffer, addr_in, 3 * 4);
+        view.setUint32(0, addr_control, true);
+        view.setUint32(4, in_control.byteLength, true);
+        view.setUint32(8, in_data.length, true);
+    }
     new Uint8Array(mem.buffer, addr_control, in_control.byteLength).set(new Uint8Array(in_control));
 
     return Promise.all(pr_done).then(() => {
@@ -128,11 +136,11 @@ function abi1(
         let outc_size: number;
         let outc_blobs: number;
         {
-            const view = new Uint32Array(mem.buffer, res_addr, 3);
+            const view = new DataView(mem.buffer, res_addr, 3 * 4);
             res_addr += 3 * 4;
-            outc_addr = view[0];
-            outc_size = view[1];
-            outc_blobs = view[2];
+            outc_addr = view.getUint32(0, true);
+            outc_size = view.getUint32(4, true);
+            outc_blobs = view.getUint32(8, true);
         }
 
         const res: workapi.OutResult = {
@@ -143,10 +151,10 @@ function abi1(
         new Uint8Array(res.control).set(new Uint8Array(mem.buffer, outc_addr, outc_size));
 
         for(let i = 0; i < outc_blobs; i += 1) {
-            const view = new Uint32Array(mem.buffer, res_addr, 2);
+            const view = new DataView(mem.buffer, res_addr, 2 * 4);
             res_addr += 2 * 4;
-            const blob_addr = view[0];
-            const blob_size = view[1];
+            const blob_addr = view.getUint32(0, true);
+            const blob_size = view.getUint32(4, true);
 
             const blob = new ArrayBuffer(blob_size);
             new Uint8Array(blob).set(new Uint8Array(mem.buffer, blob_addr, blob_size));

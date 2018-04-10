@@ -90,16 +90,26 @@ export default class Runner {
 
     private tasks = new Map<string, Task>();
 
+    /* Tasks with no result yet. */
     private tasks_pending = new Set<Task>();
+    /* Tasks waiting for data to be downloaded. */
     private tasks_blocked = new Set<Task>();
+    /* Tasks being processed by workers. */
     private tasks_running = new Set<Task>();
+    /* Tasks with results ready to be sent. */
     private tasks_finished = new Deque<Task>();
+    /* Tasks being sent right now. They might be moved back to `tasks_finished`
+     * if sending fails. */
     private tasks_sending = new Set<Task>();
 
     private requesting_tasks: boolean = false;
     private sending_results: boolean = false;
 
+    /* If not stopping, `undefined`. Otherwise, callback indicating that the
+     * Runner has stopped. Invoke through `partStop()`. */
     private stopping?: () => void;
+    /* If running, `-1`. Otherwise, the number of remaining calls to
+     * `partStop()` expected. */
     private stop_count: number = 0;
 
     private constructor(
@@ -142,7 +152,7 @@ export default class Runner {
     }
 
     public stop(): Promise<void> {
-        if(this.stopping) {
+        if(this.stopping !== undefined) {
             throw new err.State("Already stopping Runner");
         }
         if(this.stop_count === 0) {
@@ -164,9 +174,13 @@ export default class Runner {
             console.assert(this.partStop());
         });
 
-        return pr.then(() => this.save(true));
+        return pr.then(() => this.save(true)).then(() => {
+            delete this.stopping;
+        });
     }
 
+    /* Indicate a component is ready to stop. Returns `true` iff the component
+     * should stop. */
     private partStop(): boolean {
         if(this.stopping === undefined) return false;
         console.assert(this.stop_count > 0);
@@ -229,26 +243,28 @@ export default class Runner {
         }
 
         this.save(true);
+        this.report();
     }
 
     private requestTasks() {
-        if(this.partStop()) return;
+        if(this.partStop()) {
+            this.requesting_tasks = false;
+            return;
+        }
 
         this.provider.getTasks().then((tasks) => {
             this.addTaskSet(tasks);
         }).catch((e: Error) => {
             this.st.reportError(err.dataOf(e));
         }).finally(() => {
-            if(!this.partStop()) {
-                this.requesting_tasks = false;
-                this.maybeRequestTasks();
-            }
-            this.report();
+            this.requesting_tasks = false;
+            if(this.partStop()) return;
+            this.maybeRequestTasks();
         });
     }
 
     public maybeRequestTasks() {
-        if(this.stopping) return;
+        if(this.stopping !== undefined) return;
         if(this.stop_count === 0) throw new err.State("Not running");
         if(this.tasks_pending.size >= this.provider.tasks_pending_min) return;
         if(this.tasks_finished.length >= this.provider.tasks_finished_max) return;
@@ -339,26 +355,25 @@ export default class Runner {
                 this.st_sent.inc();
             }
             this.save(false);
+            this.report();
         }, (e: Error) => {
             for(const t of tasks) {
                 this.tasks_sending.delete(t);
                 this.tasks_finished.insertFront(t);
             }
             this.st.reportError(err.dataOf(e));
-        }).finally(() => {
-            if(!this.partStop()) {
-                this.sending_results = false;
-                this.maybeRequestTasks();
-                this.maybeSendResults();
-            }
-
             this.report();
+        }).finally(() => {
+            this.sending_results = false;
+            if(this.partStop()) return;
+            this.maybeRequestTasks();
+            this.maybeSendResults();
         });
         this.report();
     }
 
     public maybeSendResults() {
-        if(this.stopping) return;
+        if(this.stopping !== undefined) return;
         if(this.stop_count === 0) throw new err.State("Not running");
         if(this.tasks_finished.isEmpty()) return;
         if(this.sending_results) return;
@@ -421,6 +436,8 @@ export default class Runner {
     private startTask(t: Task) {
         this.tasks_blocked.add(t);
         this.repo.withBlobs([t.program].concat(t.in_blobs), () => {
+            this.tasks_blocked.delete(t);
+
             let releasefunc: undefined | (() => void);
             const pr_release = new Promise<void>((resolve,reject) => {
                 releasefunc = resolve;
@@ -440,7 +457,6 @@ export default class Runner {
                     data: t.in_blobs,
                 },
                 onStart: () => {
-                    this.tasks_blocked.delete(t);
                     this.tasks_running.add(t);
                     this.report();
                 },
@@ -451,7 +467,6 @@ export default class Runner {
                 },
                 onError: (e: api.ErrorData) => {
                     release();
-                    this.tasks_blocked.delete(t);
                     this.tasks_running.delete(t);
                     this.taskError(t, e);
                 },
