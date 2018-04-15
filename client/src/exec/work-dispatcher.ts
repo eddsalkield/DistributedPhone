@@ -199,12 +199,12 @@ export class WorkDispatcher {
                 this.workers_free.push(wrk);
                 if(this.kill_timer === null) {
                     const tm = setInterval(() => {
-                        const wrk = this.workers_free.pop();
-                        if(wrk === undefined) {
+                        const free = this.workers_free.pop();
+                        if(free === undefined) {
                             clearInterval(tm);
                             this.kill_timer = null;
                         } else {
-                            wrk.stop();
+                            free.stop();
                         }
                     }, 1000);
                     this.kill_timer = tm;
