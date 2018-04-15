@@ -1,6 +1,6 @@
-import "../polyfill";
+import "@/polyfill";
 
-import * as stat from "../stat";
+import * as stat from "@/stat";
 
 import {arrBuf, b64Buf} from "./test-util";
 
@@ -132,7 +132,6 @@ export function main() {
     const in_cnt = self.document.getElementById("in_cnt") as HTMLInputElement;
     const in_min = self.document.getElementById("in_min") as HTMLInputElement;
     const in_max = self.document.getElementById("in_max") as HTMLInputElement;
-    const in_wrk = self.document.getElementById("in_wrk") as HTMLInputElement;
     const but_more = self.document.getElementById("but_more")!;
     const but_start = self.document.getElementById("but_start")!;
 
@@ -237,11 +236,6 @@ export function main() {
 
     addRunner(the_api);
     but_start.onclick = () => addRunner(the_api);
-    in_wrk.oninput = () => {
-        const v = Number(in_wrk.value);
-        if(v !== Math.floor(v) || v <= 0) return;
-        the_api.workers = v;
-    };
 }
 
 export function addRunner(the_api: api.WorkProvider) {

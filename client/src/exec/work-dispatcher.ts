@@ -1,7 +1,7 @@
 import Deque from "double-ended-queue";
 
-import * as err from "../err";
-import * as stat from "../stat";
+import * as err from "@/err";
+import * as stat from "@/stat";
 
 import * as workapi from "./workapi";
 
@@ -128,8 +128,6 @@ class WorkerController implements workapi.Worker {
     }
 }
 
-const const_1 = () => 1;
-
 export class WorkDispatcher {
     private readonly st_work = new stat.Metric<number>(
         "WorkDispatcher/work_queue_size"
@@ -155,7 +153,6 @@ export class WorkDispatcher {
 
     private readonly work = new Deque<Work>();
 
-    public maxWorkers: () => number = const_1;
     public onControl: (wrk: workapi.Worker, data: workapi.OutControl) => void = () => {};
 
     constructor(
@@ -170,7 +167,7 @@ export class WorkDispatcher {
     }
 
     private get _max_workers(): number {
-        const w = this.maxWorkers() | 0;
+        const w = (self.navigator.hardwareConcurrency | 0) - 1;
         if(w < 1) return 1;
         if(w > 128) return 128;
         return w;

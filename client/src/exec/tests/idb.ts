@@ -1,8 +1,8 @@
-import "../../polyfill";
+import "@/polyfill";
 
 import {arrBuf, compare, runTests, withStat} from "../test-util";
 
-import * as err from "../../err";
+import * as err from "@/err";
 
 import IDBStorage from "../idb_storage";
 
@@ -33,19 +33,11 @@ function testReset() {
 
 function testSet() {
     return withIDB("test", (s) => {
-        return s.set("key1", new Uint8Array(data1)).then((repl) => {
-            if(repl) {
-                throw new Error("Expected empty database");
-            }
-        }).then(() => s.set("key2", new Uint8Array(data2))).then((repl) => {
-            if(repl) {
-                throw new Error("Expected 'key2' not to exist");
-            }
-        }).then(() => s.set("key2", new Uint8Array(data3))).then((repl) => {
-            if(!repl) {
-                throw new Error("Expected 'key2' to exist");
-            }
-        });
+        return s.set("key1", new Uint8Array(data1)).then(
+            () => s.set("key2", new Uint8Array(data2))
+        ).then(
+            () => s.set("key2", new Uint8Array(data3))
+        );
     });
 }
 
@@ -81,19 +73,11 @@ function testGet() {
 
 function testDelete() {
     return withIDB("test", (s) => {
-        return s.delete("key3").then((del) => {
-            if(del) {
-                throw new Error("Expected `key4` delete to return false");
-            }
-        }).then(() => s.delete("key2")).then((del) => {
-            if(!del) {
-                throw new Error("Expected `key2` delete to return true");
-            }
-        }).then(() => s.delete("key2")).then((del) => {
-            if(del) {
-                throw new Error("Expected `key2` delete to return false");
-            }
-        }).then((repl) => {
+        return s.delete("key3").then(
+            () => s.delete("key2")
+        ).then(
+            () => s.delete("key2")
+        ).then(() => {
             return s.get("key2").then(() => {
                 throw new Error("Expected `key2` not to exist");
             }, (e) => {
@@ -101,7 +85,7 @@ function testDelete() {
                     throw new Error("Expected err.State for nonexistent blob");
                 }
             });
-        }).then((repl) => {
+        }).then(() => {
             return s.get("key1").then(() => {
                 return;
             }, (e) => {

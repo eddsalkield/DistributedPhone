@@ -1,7 +1,7 @@
 import Deque from "double-ended-queue";
 
-import * as err from "../err";
-import * as stat from "../stat";
+import * as err from "@/err";
+import * as stat from "@/stat";
 
 import * as api from "./api";
 import {BlobRepo} from "./repo";
@@ -118,9 +118,8 @@ export default class Runner {
     private constructor(
         private readonly st: stat.Sink,
         private readonly provider: api.WorkProvider,
-        private readonly repo: BlobRepo
+        public readonly repo: BlobRepo
     ) {
-        this.dispatcher.maxWorkers = () => provider.workers;
         this.dispatcher.onControl = this.onControl.bind(this);
     }
 
@@ -283,7 +282,7 @@ export default class Runner {
         if(this.tasks_pending.size >= this.provider.tasks_pending_min) return;
         if(this.tasks_finished.length >= this.provider.tasks_finished_max) return;
         if(this.requesting_tasks) return;
-        setTimeout(this.requestTasks.bind(this), 0);
+        self.setTimeout(this.requestTasks.bind(this), 0);
         this.requesting_tasks = true;
     }
 
@@ -293,7 +292,7 @@ export default class Runner {
             const blobs = t.out_data!;
             return this.repo.withBlobs(blobs,
                 () => Promise.all(blobs.map((blob) => this.repo.read(blob)))
-            )[0].then((data) => {
+            ).then((data) => {
                 const res: api.TaskResultOK = {
                     id: t.id,
                     status: "ok",
@@ -393,7 +392,7 @@ export default class Runner {
         }
         if(this.tasks_finished.isEmpty()) return;
         if(this.sending_results) return;
-        setTimeout(this.sendResults.bind(this), 0);
+        self.setTimeout(this.sendResults.bind(this), 0);
         this.sending_results = true;
     }
 
@@ -464,7 +463,7 @@ export default class Runner {
 
         this.tasks_blocked.add(t);
 
-        const [pr, cb_cancel] = this.repo.withBlobs([t.program].concat(t.in_blobs), () => {
+        this.repo.withBlobs([t.program].concat(t.in_blobs), () => {
             delete t.tryCancel;
             this.tasks_blocked.delete(t);
 
@@ -513,11 +512,13 @@ export default class Runner {
 
             this.report();
             return pr_release;
-        });
-
-        t.tryCancel = cb_cancel;
-
-        pr.catch((e: Error) => {
+        }, new Promise((resolve, reject) => {
+            t.tryCancel = () => {
+                resolve(new err.Cancelled("Task cancelled", {
+                    "task_id": t.id,
+                }));
+            };
+        })).catch((e: Error) => {
             this.tasks_blocked.delete(t);
             delete t.tryCancel;
             this.taskError(t, e);
@@ -538,7 +539,7 @@ export default class Runner {
             if(now) {
                 this.save_cur.then(resolve);
             } else {
-                this.save_timer = setTimeout(() => {
+                this.save_timer = self.setTimeout(() => {
                     console.assert(this.save_next === s);
                     this.save_timer = null;
                     this.save_cur.then(resolve);
@@ -562,8 +563,8 @@ export default class Runner {
 
     private loadTask(d: rs.TaskData, pinned: Ref[]): Task {
         const t = new Task(
-            d.id, d.project, this.repo.resolve(d.program),
-            d.in_control, d.in_blobs.map((ref) => this.repo.resolve(ref)),
+            d.id, d.project, this.repo.register(d.program),
+            d.in_control, d.in_blobs.map((ref) => this.repo.register(ref)),
         );
 
         if(d.out_status === undefined) {

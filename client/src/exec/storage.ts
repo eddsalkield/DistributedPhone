@@ -16,9 +16,9 @@ export interface Storage {
     /* MUST RETURN A COPY! */
     get(id: string): Promise<ArrayBuffer>;
 
-    /* Should return true if deleted, false if the blob didn't exist. */
-    delete(id: string): Promise<boolean>;
+    /* Should do nothing if the blob doesn't exist. */
+    delete(id: string): Promise<void>;
 
-    /* Should return true if a blob was overwritten. */
-    set(id: string, data: Uint8Array): Promise<boolean>;
+    /* Should overwrite the blob atomically if it exists. */
+    set(id: string, data: Uint8Array): Promise<void>;
 }

@@ -1,5 +1,5 @@
-import * as err from "../err";
-import * as stat from "../stat";
+import * as err from "@/err";
+import * as stat from "@/stat";
 
 import {Ref, Storage} from "./storage";
 
@@ -128,18 +128,17 @@ export default class IDBStorage implements Storage {
         });
     }
 
-    public set(id: string, d: Uint8Array): Promise<boolean> {
-        return new Promise<boolean>((resolve, reject) => {
+    public set(id: string, d: Uint8Array): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
             const data = new ArrayBuffer(d.length);
             new Uint8Array(data).set(d);
 
-            let deleted = false;
             let ok = false;
 
             const tr = this.db.transaction(["blobs"], "readwrite");
             tr.onerror = idbReject(reject);
             tr.oncomplete = () => {
-                if(ok) resolve(deleted);
+                if(ok) resolve();
                 else reject(tr.error || new err.Runtime("Transaction failed"));
             };
             tr.onerror = () => {
@@ -147,77 +146,37 @@ export default class IDBStorage implements Storage {
             };
 
             const store = tr.objectStore("blobs");
-            const req = store.count(IDBKeyRange.only(id));
-            req.onerror = idbReject(reject);
 
-            const doIns = () => {
-                try {
-                    const obj: Entry = {
-                        "id": id,
-                        "size_nl_id": `${data.byteLength}\n${id}`,
-                        "data": data,
-                    };
-                    const r2 = store.add(obj);
-                    r2.onerror = idbReject(reject);
-                    r2.onsuccess = () => {
-                        ok = true;
-                    };
-                } catch(e) {
-                    reject(e);
-                    tr.abort();
-                }
+            const obj: Entry = {
+                "id": id,
+                "size_nl_id": `${data.byteLength}\n${id}`,
+                "data": data,
             };
-
+            const req = store.put(obj);
+            req.onerror = idbReject(reject);
             req.onsuccess = () => {
-                if((req.result as number) !== 0) {
-                    deleted = true;
-                    try {
-                        const r2 = store.delete(IDBKeyRange.only(id));
-                        r2.onerror = idbReject(reject);
-                        r2.onsuccess = () => doIns();
-                    } catch(e) {
-                        reject(e);
-                        tr.abort();
-                    }
-                } else {
-                    doIns();
-                }
+                ok = true;
             };
         });
     }
 
-    public delete(id: string): Promise<boolean> {
-        return new Promise<boolean>((resolve, reject) => {
-            let deleted = false;
+    public delete(id: string): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
             let ok = false;
 
             const tr = this.db.transaction(["blobs"], "readwrite");
             tr.onerror = idbReject(reject);
             tr.oncomplete = () => {
-                if(ok) resolve(deleted);
+                if(ok) resolve();
                 else reject(tr.error || new err.Runtime("Transaction failed"));
             };
 
             const store = tr.objectStore("blobs");
-            const req = store.count(IDBKeyRange.only(id));
-            req.onerror = idbReject(reject);
 
+            const req = store.delete(IDBKeyRange.only(id));
+            req.onerror = idbReject(reject);
             req.onsuccess = () => {
-                if((req.result as number) !== 0) {
-                    deleted = true;
-                    try {
-                        const r2 = store.delete(IDBKeyRange.only(id));
-                        r2.onerror = idbReject(reject);
-                        r2.onsuccess = () => {
-                            ok = true;
-                        };
-                    } catch(e) {
-                        reject(e);
-                        tr.abort();
-                    }
-                } else {
-                    ok = true;
-                }
+                ok = true;
             };
         });
     }

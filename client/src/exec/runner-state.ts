@@ -1,4 +1,4 @@
-import * as cbor from "../cbor";
+import * as cbor from "@/cbor";
 
 import * as api from "./api";
 import {Ref} from "./storage";

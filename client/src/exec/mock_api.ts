@@ -1,7 +1,7 @@
 import Deque from "double-ended-queue";
 
-import * as err from "../err";
-import * as stat from "../stat";
+import * as err from "@/err";
+import * as stat from "@/stat";
 
 import * as api from "./api";
 
@@ -34,11 +34,11 @@ export default class MockAPI implements api.WorkProvider {
 
     private readonly conditions: Array<[() => boolean, () => void]> = [];
 
-    public workers = 8;
     public tasks_pending_min = 100;
     public tasks_finished_max = 1000;
     public send_max_bytes = 16384;
     public save_timeout = 1000;
+    public cache_max = 1.0e6;
 
     constructor(
         public readonly st: stat.Sink | null
@@ -81,7 +81,7 @@ export default class MockAPI implements api.WorkProvider {
     public getTasks(): Promise<api.TaskSet> {
         if(this.tasks.isEmpty()) {
             return new Promise((resolve, reject) => {
-                setTimeout(() => resolve({
+                self.setTimeout(() => resolve({
                     tasks: [],
                     blob_info: new Map(),
                 }), 500 * Math.random());

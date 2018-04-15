@@ -1,14 +1,14 @@
-import "../../polyfill";
+import "@/polyfill";
 
+import MemStorage from "../mem_storage";
 import MockAPI from "../mock_api";
 import * as tb from "../test-blobs";
 import {arrBuf, compare, runTests, withRunner} from "../test-util";
 
 // import * as api from "../api";
-import MemStorage from "../mem_storage";
 
 function wait(ms: number): Promise<void> {
-    return new Promise((resolve,reject) => setTimeout(() => resolve(), ms));
+    return new Promise((resolve,reject) => self.setTimeout(() => resolve(), ms));
 }
 
 function testStartStop(): Promise<void> {

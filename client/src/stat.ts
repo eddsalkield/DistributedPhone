@@ -47,7 +47,7 @@ export class Root implements Sink {
     public setDirty() {
         if(this._dirty) return;
         this._dirty = true;
-        setTimeout(this._changed.bind(this), 0);
+        self.setTimeout(this._changed.bind(this), 50);
     }
 
     private _changed(): void {
@@ -216,7 +216,7 @@ export class Group extends Child implements Sink {
                 Object.assign(e2, p.key);
             }
             Object.assign(e2, e);
-            console.error(`Unhandled exception: {err.format(e)}`);
+            console.error(`Unhandled exception: ${err.formatData(e)}`);
         }
     }
 }

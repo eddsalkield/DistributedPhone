@@ -1,7 +1,7 @@
 import Runner from "./runner";
 
-import * as err from "../err";
-import * as stat from "../stat";
+import * as err from "@/err";
+import * as stat from "@/stat";
 
 import MockAPI from "./mock_api";
 import {Storage} from "./storage";
@@ -60,7 +60,7 @@ export function withStat<T>(f: (s: stat.Sink) => Promise<T>): Promise<T> {
         const the_tsdb = new TestTSDB(reject);
         const the_stat = new stat.Root(the_tsdb);
         Promise.resolve(the_stat).then(f).then((v) => {
-            setTimeout(() => {
+            self.setTimeout(() => {
                 if(!the_tsdb.rejected) resolve(v);
             }, 500);
         }, (e) => {
@@ -215,7 +215,8 @@ export function runTests(tests: Array<() => Promise<void>>): Promise<void> {
             new Promise<void>((res,rej) => res(test())).then(() => {
                 writeLine("Pass");
             }, (e) => {
-                writeLine("Error: " + e.message);
+                writeLine(err.format(e));
+                console.error(e);
             }).then(runner);
         };
         runner();

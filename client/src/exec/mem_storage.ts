@@ -1,8 +1,8 @@
-import * as err from "../err";
+import * as err from "@/err";
 import {Ref, Storage} from "./storage";
 
 export default class MemStorage implements Storage {
-    private blobs: Map<string, ArrayBuffer>;
+    public readonly blobs: Map<string, ArrayBuffer>;
 
     constructor() {
         this.blobs = new Map();
@@ -25,22 +25,19 @@ export default class MemStorage implements Storage {
         });
     }
 
-    public delete(id: string): Promise<boolean> {
+    public delete(id: string): Promise<void> {
         return new Promise((resolve, reject) => {
-            resolve(this.blobs.delete(id));
+            this.blobs.delete(id);
+            resolve();
         });
     }
 
-    public set(id: string, data: Uint8Array): Promise<boolean> {
+    public set(id: string, data: Uint8Array): Promise<void> {
         return new Promise((resolve, reject) => {
-            if(this.blobs.get(id)) {
-                resolve(true);
-            } else {
-                resolve(false);
-            }
             const bl = new ArrayBuffer(data.byteLength);
-            (new Uint8Array(bl)).set(data);
+            new Uint8Array(bl).set(data);
             this.blobs.set(id, bl);
+            resolve();
         });
     }
 }

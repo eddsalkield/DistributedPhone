@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "watch": "yarn run webpack -w --env.dev --env.tests",
+    "watch": "yarn run webpack -w",
     "lint": "yarn run tslint --project tsconfig-dom.json && yarn run tslint --project tsconfig-worker.json"
   },
   "dependencies": {
@@ -11,7 +11,7 @@
     "raw-loader": "*",
     "ts-loader": "*",
     "tslint": "*",
-    "typescript": "*",
+    "typescript": "^2.8.1",
     "webpack": "*",
     "webpack-cli": "*"
   }

@@ -1,3 +1,3 @@
-import "./polyfill";
+import "@/polyfill";
 
 // Main code goes here

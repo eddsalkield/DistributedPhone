@@ -92,3 +92,41 @@ export function dataOf(err: Error): Data {
         };
     }
 }
+
+export function format(e: Error): string {
+    if(e instanceof Base) {
+        return formatData(e.attr);
+    } else {
+        return `${Object.getPrototypeOf(e).constructor.name}: ${e.message}`;
+    }
+}
+
+export function formatData(data: Data): string {
+    let msg = `Error [${data["kind"]}]: ${data["message"]}`;
+    const keys = Object.keys(data);
+    keys.splice(keys.indexOf("kind"), 1);
+    keys.splice(keys.indexOf("message"), 1);
+    if(keys.length > 0) {
+        keys.sort((a, b) => {
+            if(a < b) return -1;
+            if(a > b) return 1;
+            return 0;
+        });
+        msg += " [";
+        let first = true;
+        for(const key of keys) {
+            if(first) first = false;
+            else msg += ", ";
+            msg += key;
+            msg += " = ";
+            const value = data[key]!;
+            if(typeof value === "object") {
+                msg += `[${value["kind"]}]: ${value["message"]}`;
+            } else {
+                msg += JSON.stringify(value);
+            }
+        }
+        msg += "]";
+    }
+    return msg;
+}

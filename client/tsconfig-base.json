@@ -19,6 +19,9 @@
     "moduleResolution": "node",
     "baseUrl": ".",
     "paths": {
+      "@/*": [
+        "src/*"
+      ],
       "*": [
         "types/*"
       ]

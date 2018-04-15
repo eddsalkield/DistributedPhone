@@ -4,7 +4,7 @@ const webpack = require('webpack');
 distdir = path.resolve(__dirname, "dist");
 
 module.exports = function(env, argv) {
-  if(!env) env = {};
+  if(!env) env = {dev: true, tests: true};
   function makeConfig(target, tsconfig) {
     return {
       target: target,
@@ -31,7 +31,8 @@ module.exports = function(env, argv) {
       resolve: {
         extensions: ['.tsx', '.ts', '.js'],
         alias: {
-          Dist: distdir,
+          'Dist': distdir,
+          '@': path.resolve(__dirname, 'src'),
         }
       },
       entry: {},
@@ -50,6 +51,7 @@ module.exports = function(env, argv) {
   as_dom.entry["index"] =  "./src/index.ts";
   if(env.tests) {
     as_dom.entry["exec-test-rig"] = "./src/exec/test-rig.ts";
+    as_dom.entry["test-exec-repo"] = "./src/exec/tests/repo.ts";
     as_dom.entry["test-exec-runner"] = "./src/exec/tests/runner.ts";
     as_dom.entry["test-exec-idb"] = "./src/exec/tests/idb.ts";
   }

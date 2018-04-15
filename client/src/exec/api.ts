@@ -1,4 +1,4 @@
-import {Data as ErrorData} from "../err";
+import {Data as ErrorData} from "@/err";
 
 export type ErrorData = ErrorData;
 
@@ -40,26 +40,29 @@ export interface TaskResultRefused extends TaskResultBase {
 
 export type TaskResult = TaskResultOK | TaskResultError | TaskResultRefused;
 
-export interface WorkProvider {
+export interface BlobProvider {
+    getBlob(name: string): Promise<ArrayBuffer>;
+
+    /* Maximum number of bytes to store. */
+    readonly cache_max: number;
+}
+
+export interface WorkProvider extends BlobProvider {
     /* The implementation must deal with waiting/backoff in case of network
      * problems. */
-    getBlob(name: string): Promise<ArrayBuffer>;
     getTasks(): Promise<TaskSet>;
     sendTasks(results: TaskResult[]): Promise<void>;
 
-    // Number of workers.
-    readonly workers: number;
-
-    // If the number of tasks available drops below this, request more.
+    /* If the number of tasks available drops below this, request more. */
     readonly tasks_pending_min: number;
 
-    // Stop requesting more tasks if there are too many finished tasks that
-    // haven't been sent yet.
+    /* Stop requesting more tasks if there are too many finished tasks that
+     * haven't been sent yet. */
     readonly tasks_finished_max: number;
 
-    // Maximum number of bytes (approximately) to send at a time.
+    /* Maximum number of bytes (approximately) to send at a time. */
     readonly send_max_bytes: number;
 
-    // Number of milliseconds after which to save non-important state changes.
+    /* Number of milliseconds after which to save non-important state changes. */
     readonly save_timeout: number;
 }

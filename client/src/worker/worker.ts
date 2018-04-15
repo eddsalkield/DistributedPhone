@@ -1,6 +1,6 @@
-import "../polyfill";
+import "@/polyfill";
 
-import * as workapi from "../exec/workapi";
+import * as workapi from "@/exec/workapi";
 
 const blobWait = new Map<string, Array<(data: ArrayBuffer) => void>>();
 function readBlob(blob: workapi.Ref): Promise<ArrayBuffer> {
