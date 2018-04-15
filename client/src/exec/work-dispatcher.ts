@@ -166,6 +166,8 @@ export class WorkDispatcher {
 
     private readonly work = new Deque<Work>();
 
+    private paused: number = 0;
+
     public onControl: (wrk: workapi.Worker, data: workapi.OutControl) => void = () => {};
 
     constructor(
@@ -271,6 +273,7 @@ export class WorkDispatcher {
 
     private doPull(): void {
         this.pull_scheduled = false;
+        if(this.paused > 0) return;
 
         while(this.workers_free.length !== 0) {
             const w = this.work.dequeue();
@@ -299,5 +302,15 @@ export class WorkDispatcher {
         }
 
         this.report();
+    }
+
+    public pause(resume: Promise<void>): void {
+        this.paused += 1;
+        resume.finally(() => {
+            this.paused -= 1;
+            if(this.paused === 0) {
+                this.pull();
+            }
+        });
     }
 }
