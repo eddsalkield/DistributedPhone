@@ -74,7 +74,7 @@ class WorkerController implements workapi.Worker {
             this.work = null;
             work.onError(e);
         } else {
-            this.st.reportError(err.dataOf(e));
+            this.st.reportError(e);
         }
     }
 

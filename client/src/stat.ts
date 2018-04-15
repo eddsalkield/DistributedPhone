@@ -26,7 +26,7 @@ export interface Sink extends Base {
     readonly children: Set<Metric>;
     readonly direct_children: Set<Child>;
 
-    reportError(e: err.Data): void;
+    reportError(e: Error): void;
 }
 
 export class Root implements Sink {
@@ -65,9 +65,9 @@ export class Root implements Sink {
         this.tsdb.write(now, data);
     }
 
-    public reportError(e: err.Data): void {
+    public reportError(e: Error, key?: Key): void {
         const now = new Date().getTime() / 1000;
-        this.tsdb.writeError(now, e);
+        this.tsdb.writeError(now, Object.assign({}, err.dataOf(e), key || {}));
     }
 }
 
@@ -206,17 +206,12 @@ export class Group extends Child implements Sink {
         for(const c of this.direct_children) c.reroot();
     }
 
-    public reportError(e: err.Data): void {
+    public reportError(e: Error): void {
         const rt = this.root;
         if(rt !== null) {
-            rt.reportError(Object.assign({}, this.root_key!, e));
+            rt.reportError(e, this.root_key!);
         } else {
-            const e2: Partial<err.Data> = Object.assign({}, this.key);
-            for(let p = this.parent; p !== null; p = p.parent) {
-                Object.assign(e2, p.key);
-            }
-            Object.assign(e2, e);
-            console.error(`Unhandled exception: ${err.formatData(e)}`);
+            console.error(`Unhandled exception: ${err.format(e)}`);
         }
     }
 }

@@ -255,11 +255,11 @@ export class BlobRepo {
         const blob = this.blobs.get(ref.id);
         if(blob !== undefined) {
             if(blob.ref.size !== ref.size) {
-                this.st.reportError(err.dataOf(new err.State("Blob size mismatch", {
+                this.st.reportError(new err.State("Blob size mismatch", {
                     blob_id: ref.id,
                     got_size: blob.ref.size,
                     want_size: ref.size,
-                })));
+                }));
             }
             return blob;
         }
@@ -515,9 +515,9 @@ export class BlobRepo {
             }
 
             if(this.dl_cur === 0 && this.cache_expect !== 0) {
-                this.st.reportError(err.dataOf(new err.State("Expected cache size leak", {
+                this.st.reportError(new err.State("Expected cache size leak", {
                     "expected_cache_size_leak": this.cache_expect,
-                })));
+                }));
                 this.cache_expect = 0;
             }
 
@@ -533,11 +533,11 @@ export class BlobRepo {
             this.provider.getBlob(id.slice(7)).then((data) => {
                 const real_size = data.byteLength;
                 if(real_size !== expected_size) {
-                    this.st.reportError(err.dataOf(new err.State("Blob size changed", {
+                    this.st.reportError(new err.State("Blob size changed", {
                         blob_id: id,
                         got_size: real_size,
                         want_size: expected_size,
-                    })));
+                    }));
                     blob.ref = {
                         id: id,
                         size: real_size,

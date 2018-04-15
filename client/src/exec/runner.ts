@@ -130,7 +130,7 @@ export default class Runner {
                 try {
                     r.load(data);
                 } catch(e)  {
-                    st.reportError(err.dataOf(e));
+                    st.reportError(e);
                 }
             }
             r.start();
@@ -266,7 +266,7 @@ export default class Runner {
         this.provider.getTasks().then((tasks) => {
             this.addTaskSet(tasks);
         }).catch((e: Error) => {
-            this.st.reportError(err.dataOf(e));
+            this.st.reportError(e);
         }).finally(() => {
             this.requesting_tasks = false;
             if(this.partStop()) return;
@@ -379,7 +379,7 @@ export default class Runner {
                 this.tasks_sending.delete(t);
                 this.tasks_finished.insertFront(t);
             }
-            this.st.reportError(err.dataOf(e));
+            this.st.reportError(e);
             this.report();
         }).finally(() => {
             this.sending_results = false;
@@ -625,11 +625,9 @@ export default class Runner {
 
         for(const task of tasks) {
             if(this.tasks.get(task.id)) {
-                this.st.reportError({
-                    "kind": "state",
-                    "message": "Task already exists",
+                this.st.reportError(new err.State("Task already exists", {
                     "task_id": task.id,
-                });
+                }));
                 continue;
             }
 
