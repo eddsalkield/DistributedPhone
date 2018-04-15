@@ -6,7 +6,7 @@ import * as stat from "@/stat";
 import * as api from "./api";
 import {BlobRepo} from "./repo";
 import {Ref, Storage} from "./storage";
-import {Work, WorkDispatcher} from "./work-dispatcher";
+import {WorkCallbacks, WorkDispatcher} from "./work-dispatcher";
 import * as workapi from "./workapi";
 
 import * as rs from "./runner-state";
@@ -484,12 +484,7 @@ export default class Runner {
                 r();
             };
 
-            const work: Work = {
-                input: {
-                    program: t.program,
-                    control: t.in_control,
-                    data: t.in_blobs,
-                },
+            const wcb: WorkCallbacks = {
                 onStart: () => {
                     this.tasks_running.add(t);
                     this.report();
@@ -513,7 +508,11 @@ export default class Runner {
                 },
             };
 
-            t.tryCancel = this.dispatcher.push(work);
+            t.tryCancel = this.dispatcher.push(wcb, {
+                program: t.program,
+                control: t.in_control,
+                data: t.in_blobs,
+            }, []);
 
             this.report();
             return pr_release;

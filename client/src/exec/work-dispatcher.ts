@@ -7,14 +7,18 @@ import * as workapi from "./workapi";
 
 type Transferable = ArrayBuffer | MessagePort;
 
-export interface Work {
+export interface WorkCallbacks {
     onStart(): void;
     onError(e: Error): void;
     onDone(out: workapi.OutResult): void;
     onControl(ctl: workapi.Worker, out: workapi.OutControl): boolean;
-    input: workapi.InWork;
-    transfer?: Transferable[];
-    cancelled?: boolean;
+}
+
+interface Work {
+    cb: WorkCallbacks | null;
+    input: workapi.InWork | null;
+    transfer: Transferable[] | null;
+    worker: WorkerController | null;
 }
 
 class WorkerController implements workapi.Worker {
@@ -23,7 +27,6 @@ class WorkerController implements workapi.Worker {
     public readonly w: Worker;
 
     private work: Work | null = null;
-    private ready = true;
 
     public onDead: (graceful: boolean) => void = () => {};
     public onReady: () => void = () => {};
@@ -37,8 +40,18 @@ class WorkerController implements workapi.Worker {
         } finally {
             URL.revokeObjectURL(url);
         }
-        this.w.onerror = this.workerError.bind(this);
-        this.w.onmessage = this.workerMessage.bind(this);
+        this.w.onerror = () => {
+            this.kill("Worker error");
+        };
+        this.w.onmessage = (event: MessageEvent) => {
+            try {
+                this.onMessage(event.data);
+            } catch(e) {
+                this.kill(new err.Runtime("Worker message caused exception", {
+                    cause: err.dataOf(e),
+                }));
+            }
+        }
     }
 
     private send(data: workapi.In, transfer: Transferable[] | undefined) {
@@ -46,16 +59,17 @@ class WorkerController implements workapi.Worker {
     }
 
     public setWork(work: Work) {
-        console.assert(this.ready);
-        this.ready = false;
-        this.work = work;
         try {
-            this.send({work: work.input}, work.transfer);
+            this.send({work: work.input!}, work.transfer!);
         } catch(e) {
             this.kill("Failed to send message");
             throw e;
         }
-        work.onStart();
+        this.work = work;
+        work.input = null;
+        work.transfer = null;
+        work.worker = this;
+        work.cb!.onStart();
     }
 
     public sendControl(data: workapi.InControl, transfer?: Transferable[]) {
@@ -66,65 +80,64 @@ class WorkerController implements workapi.Worker {
         if(typeof e === "string") {
             e = new err.Runtime(e);
         }
-        this.ready = false;
+
         this.w.terminate();
         this.onDead(false);
+
+        this.onError(e);
+    }
+
+    private onError(e: Error) {
         const work = this.work;
-        if(work) {
-            this.work = null;
-            work.onError(e);
-        } else {
+        if(work === null) {
             this.st.reportError(e);
+            return;
         }
+        this.work = null;
+
+        const cb = work.cb!;
+        work.cb = null;
+        work.worker = null;
+        cb.onError(e);
+    }
+
+    private onResult(data: workapi.OutResult) {
+        const work = this.work;
+        if(work === null) {
+            this.kill("Worker sent result without work");
+            return;
+        }
+        this.work = null;
+
+        const cb = work.cb!;
+        work.cb = null;
+        work.worker = null;
+        cb.onDone(data);
     }
 
     public stop() {
         console.assert(this.work === null);
-        this.ready = false;
         this.w.terminate();
         this.onDead(true);
     }
 
-    private workerError() {
-        this.kill("Worker failed");
-    }
-
-    private workerMessage(msg: MessageEvent) {
-        try {
-            const data = msg.data as workapi.Out;
-            if(data.result) {
-                const work = this.work;
-                if(!work) {
-                    this.kill("Worker sent result without work");
-                    return;
-                }
-                this.work = null;
-                work.onDone(data.result);
-                this.ready = true;
-                this.onReady();
-            } else if(data.error) {
-                const work = this.work;
-                if(!work) {
-                    this.kill("Worker sent error without work");
-                    return;
-                }
-                this.work = null;
-                work.onError(err.fromData(data.error));
-                this.ready = true;
-                this.onReady();
-            } else if(data.control) {
-                const work = this.work;
-                if(!work || !work.onControl(this, data.control)) this.onControl(data.control);
-            } else {
-                this.kill("Worker sent invalid message");
-                return;
-            }
-        } catch(e) {
-            this.kill(new err.Runtime("Worker message caused exception", {
-                cause: err.dataOf(e.message),
-            }));
+    private onMessage(data: workapi.Out) {
+        if(data.control !== undefined) {
+            const work = this.work;
+            if(!work || !work.cb!.onControl(this, data.control)) this.onControl(data.control);
             return;
         }
+
+        if(data.result !== undefined) {
+            this.onResult(data.result);
+        } else if(data.error) {
+            this.onError(err.fromData(data.error));
+        } else {
+            this.kill("Worker sent invalid message");
+            return;
+        }
+
+        this.onReady();
     }
 }
 
@@ -166,7 +179,7 @@ export class WorkDispatcher {
         this.st_workers_free.set(this.workers_free.length);
     }
 
-    private get _max_workers(): number {
+    private get max_workers(): number {
         const w = (self.navigator.hardwareConcurrency | 0) - 1;
         if(w < 1) return 1;
         if(w > 128) return 128;
@@ -183,36 +196,13 @@ export class WorkDispatcher {
             console.assert(this.workers.has(wrk));
             console.assert(this.workers_free.indexOf(wrk) === -1);
 
-            if(this.workers.size > this._max_workers) {
+            if(this.workers.size > this.max_workers) {
                 wrk.stop();
                 return;
             }
 
-            let w: Work | undefined;
-            while(true) {
-                w = this.work.dequeue();
-                if(w === undefined || !w.cancelled) break;
-                w.onError(new err.Cancelled("Task cancelled"));
-            }
-
-            if(w === undefined) {
-                this.workers_free.push(wrk);
-                if(this.kill_timer === null) {
-                    const tm = setInterval(() => {
-                        const free = this.workers_free.pop();
-                        if(free === undefined) {
-                            clearInterval(tm);
-                            this.kill_timer = null;
-                        } else {
-                            free.stop();
-                        }
-                    }, 1000);
-                    this.kill_timer = tm;
-                }
-            } else {
-                wrk.setWork(w);
-            }
-
+            this.workers_free.push(wrk);
+            this.pull();
             this.report();
         };
 
@@ -227,7 +217,7 @@ export class WorkDispatcher {
                 this.st_workers_killed.inc();
             }
 
-            if(!this.work.isEmpty() && this.workers.size < this._max_workers) {
+            if(!this.work.isEmpty() && this.workers.size < this.max_workers) {
                 this.addWorker();
             }
 
@@ -242,20 +232,72 @@ export class WorkDispatcher {
         wrk.onReady();
     }
 
-    public push(w: Work): () => void {
-        const wrk = this.workers_free.pop();
-        if(wrk) {
-            console.assert(this.work.isEmpty());
-            wrk.setWork(w);
-        } else {
-            this.work.push(w);
-            if(this.workers.size < this._max_workers) {
-                this.addWorker();
-            }
-        }
-        this.report();
-        return () => {
-            w.cancelled = true;
+    public push(cb: WorkCallbacks, input: workapi.InWork, transfer: Transferable[]): () => void {
+        const work: Work = {
+            cb: cb,
+            input: input,
+            transfer: transfer,
+            worker: null,
         };
+
+        const cancel = () => {
+            const wrk = work.worker;
+            if(wrk !== null) {
+                wrk.kill(new err.Cancelled("Task cancelled"));
+                return;
+            }
+
+            const wcb = work.cb;
+            if(wcb !== null) {
+                work.cb = null;
+                wcb.onError(new err.Cancelled("Task cancelled"));
+                return;
+            }
+        };
+
+        this.work.push(work);
+        this.pull();
+        this.report();
+
+        return cancel;
+    }
+
+    private pull_scheduled: boolean = false;
+    private pull(): void {
+        if(this.pull_scheduled) return;
+        this.pull_scheduled = false;
+        self.setTimeout(() => this.doPull(), 0);
+    }
+
+    private doPull(): void {
+        this.pull_scheduled = false;
+
+        while(this.workers_free.length !== 0) {
+            const w = this.work.dequeue();
+            if(w === undefined) {
+                if(this.kill_timer === null) {
+                    const tm = setInterval(() => {
+                        const wrk = this.workers_free.pop();
+                        if(wrk === undefined) {
+                            clearInterval(tm);
+                            this.kill_timer = null;
+                        } else {
+                            wrk.stop();
+                        }
+                    }, 1000);
+                    this.kill_timer = tm;
+                }
+                break;
+            }
+            if(w.cb === null) continue;
+            const wrk = this.workers_free.pop()!;
+            wrk.setWork(w);
+        }
+
+        if(this.workers.size < this.max_workers) {
+            this.addWorker();
+        }
+
+        this.report();
     }
 }
