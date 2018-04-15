@@ -357,17 +357,22 @@ export default class Runner {
         const results = Promise.all(tasks.map((t) => this.taskResult(t)));
 
         results.then((data) => this.provider.sendTasks(data)).then(() => {
+            const unpin: Ref[] = [];
             for(const t of tasks) {
                 this.tasks_sending.delete(t);
                 this.tasks.delete(t.id);
                 if(t.out_data !== undefined) {
                     for(const ref of t.out_data) {
-                        this.repo.unpin(ref);
+                        unpin.push(ref);
                     }
                 }
                 this.st_sent.inc();
             }
-            this.save(false);
+            this.save(false).then(() => {
+                for(const ref of unpin) {
+                    this.repo.unpin(ref);
+                }
+            });
             this.report();
         }, (e: Error) => {
             for(const t of tasks) {
