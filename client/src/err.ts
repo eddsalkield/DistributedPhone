@@ -28,10 +28,6 @@ export abstract class Base extends Error {
 
 export class State extends Base {
     public static readonly kind: string = "state";
-
-    constructor(message: string, attr?: ErrorAttr) {
-        super(message, attr);
-    }
 }
 
 export class Runtime extends Base {
@@ -53,6 +49,9 @@ export class Cancelled extends Base {
 export function fromData(d: Data): Base {
     d = Object.assign({}, d);
     const k = d["kind"];
+    const msg = d["message"];
+    delete d["kind"];
+    delete d["message"];
 
     let kind: ErrorType;
     if(k === "state") {
@@ -69,10 +68,7 @@ export function fromData(d: Data): Base {
         kind = Runtime;
     }
 
-    const e = Object.create(kind) as Base;
-    e.message = d.message;
-    e.attr = d;
-    return e;
+    return new kind(msg, d);
 }
 
 export function dataOf(err: Error): Data {

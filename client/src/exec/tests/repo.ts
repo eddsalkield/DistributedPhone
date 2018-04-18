@@ -3,7 +3,7 @@ import "@/polyfill";
 import * as err from "@/err";
 import * as stat from "@/stat";
 
-import {runTests, withStat} from "../test-util";
+import {releaser, runTests, withStat} from "../test-util";
 
 import MemStorage from "../mem_storage";
 import MockAPI from "../mock_api";
@@ -16,14 +16,6 @@ function ref(size: number, ix: number): Ref {
         id: `remote/${size}/${ix}`,
         size: size,
     };
-}
-
-function releaser(): [Promise<void>, () => void] {
-    let release!: () => void;
-    const pr = new Promise<void>((resolve, reject) => {
-        release = resolve;
-    });
-    return [pr, release!];
 }
 
 async function asyncSleep(ms: number): Promise<void> {

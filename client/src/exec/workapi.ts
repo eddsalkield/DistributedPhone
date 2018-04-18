@@ -38,8 +38,3 @@ export interface Out {
     result?: OutResult;
     control?: OutControl;
 }
-
-export interface Worker {
-    sendControl(data: InControl, transfer?: any): void;
-    kill(e: Error | string): void;
-}

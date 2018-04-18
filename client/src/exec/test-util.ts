@@ -55,6 +55,14 @@ export function writeLine(text: string) {
     self.document.body.appendChild(self.document.createElement("br"));
 }
 
+export function releaser<T = void>(): [Promise<T>, (value?: T) => void] {
+    let release!: (value?: T) => void;
+    const pr = new Promise<T>((resolve, reject) => {
+        release = resolve;
+    });
+    return [pr, release!];
+}
+
 export function withStat<T>(f: (s: stat.Sink) => Promise<T>): Promise<T> {
     return new Promise<T>((resolve, reject) => {
         const the_tsdb = new TestTSDB(reject);

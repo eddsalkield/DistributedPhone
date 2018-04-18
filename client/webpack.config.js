@@ -52,6 +52,7 @@ module.exports = function(env, argv) {
   if(env.tests) {
     as_dom.entry["exec-test-rig"] = "./src/exec/test-rig.ts";
     as_dom.entry["test-exec-repo"] = "./src/exec/tests/repo.ts";
+    as_dom.entry["test-exec-work-dispatcher"] = "./src/exec/tests/work-dispatcher.ts";
     as_dom.entry["test-exec-runner"] = "./src/exec/tests/runner.ts";
     as_dom.entry["test-exec-idb"] = "./src/exec/tests/idb.ts";
   }

@@ -6,7 +6,7 @@ import * as stat from "@/stat";
 import * as api from "./api";
 import {BlobRepo} from "./repo";
 import {Ref, Storage} from "./storage";
-import {WorkCallbacks, WorkDispatcher} from "./work-dispatcher";
+import * as wd from "./work-dispatcher";
 import * as workapi from "./workapi";
 
 import * as rs from "./runner-state";
@@ -85,7 +85,7 @@ export default class Runner {
     private readonly st_sending = new stat.Metric<number>("Runner/tasks_sending").attach(this.st);
     private readonly st_sent = new stat.Counter("Runner/tasks_sent").attach(this.st);
 
-    private readonly dispatcher: WorkDispatcher = new WorkDispatcher(this.st, worker_blob);
+    private readonly dispatcher = new wd.Dispatcher(this.st, worker_blob);
 
     // Only works in Firefox?
     public static send_wasm_mod: boolean = false;
@@ -119,9 +119,7 @@ export default class Runner {
         private readonly st: stat.Sink,
         private readonly provider: api.WorkProvider,
         public readonly repo: BlobRepo
-    ) {
-        this.dispatcher.onControl = this.onControl.bind(this);
-    }
+    ) {}
 
     public static create(st: stat.Sink, provider: api.WorkProvider, storage: Storage): Promise<Runner> {
         return BlobRepo.create(st, provider, storage).then((repo) => repo.readState("runner").then((data) => {
@@ -438,18 +436,17 @@ export default class Runner {
         });
     }
 
-    private onControl(wrk: workapi.Worker, ctl: workapi.OutControl): void {
-        if(ctl.get_blob !== undefined) {
-            const ref = ctl.get_blob;
+    private onControl(ctl: wd.Controller, data: workapi.OutControl): boolean {
+        if(data.get_blob !== undefined) {
+            const ref = data.get_blob;
             this.repo.read(ref).then((data) => {
-                wrk.sendControl({get_blob: [ref.id, data]}, [data]);
+                ctl.sendControl({get_blob: [ref.id, data]}, [data]);
             }, (e) => {
-                wrk.kill(e);
+                ctl.kill(e);
             });
-        } else {
-            wrk.kill("Worker sent unknown control message");
+            return true;
         }
-        return;
+        return false;
     }
 
     private newTask(t: Task) {
@@ -472,55 +469,50 @@ export default class Runner {
             delete t.tryCancel;
             this.tasks_blocked.delete(t);
 
-            let releasefunc: undefined | (() => void);
+            let release: (() => void) | undefined;
             const pr_release = new Promise<void>((resolve,reject) => {
-                releasefunc = resolve;
+                release = resolve;
             });
-            console.assert(releasefunc !== undefined);
-            const release = () => {
-                const r = releasefunc;
-                if(r === undefined) return;
-                releasefunc = undefined;
-                r();
-            };
 
-            const wcb: WorkCallbacks = {
+            const ctl = this.dispatcher.push({
                 onStart: () => {
                     this.tasks_running.add(t);
                     this.report();
                 },
                 onDone: (data: workapi.OutResult) => {
-                    release();
+                    delete t.tryCancel;
+                    release!();
                     this.tasks_running.delete(t);
                     this.taskDone(t, data.control, data.data);
                 },
                 onError: (e: Error) => {
-                    release();
+                    delete t.tryCancel;
+                    release!();
                     this.tasks_running.delete(t);
                     this.taskError(t, e);
                 },
-                onControl: (ctl: workapi.Worker, data: workapi.OutControl): boolean => {
+                onControl: (data: workapi.OutControl): boolean => {
                     if(data.notify_started !== undefined) {
-                        release();
+                        release!();
                         return true;
                     }
-                    return false;
+                    return this.onControl(ctl, data);
                 },
-            };
-
-            t.tryCancel = this.dispatcher.push(wcb, {
+            }, {
                 program: t.program,
                 control: t.in_control,
                 data: t.in_blobs,
             }, []);
 
+            t.tryCancel = () => {
+                ctl.kill(new err.Cancelled("Task cancelled"));
+            };
+
             this.report();
             return pr_release;
         }, new Promise((resolve, reject) => {
             t.tryCancel = () => {
-                resolve(new err.Cancelled("Task cancelled", {
-                    "task_id": t.id,
-                }));
+                resolve(new err.Cancelled("Task cancelled"));
             };
         })).catch((e: Error) => {
             this.tasks_blocked.delete(t);

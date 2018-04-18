@@ -7,21 +7,26 @@ import * as workapi from "./workapi";
 
 type Transferable = ArrayBuffer | MessagePort;
 
-export interface WorkCallbacks {
+export interface Callbacks {
     onStart(): void;
     onError(e: Error): void;
     onDone(out: workapi.OutResult): void;
-    onControl(ctl: workapi.Worker, out: workapi.OutControl): boolean;
+    onControl(data: workapi.OutControl): boolean;
+}
+
+export interface Controller {
+    sendControl(data: workapi.InControl, transfer: Transferable[]): void;
+    kill(e: Error): void;
 }
 
 interface Work {
-    cb: WorkCallbacks | null;
+    cb: Callbacks | null;
     input: workapi.InWork | null;
     transfer: Transferable[] | null;
-    worker: WorkerController | null;
+    worker: Thread | null;
 }
 
-class WorkerController implements workapi.Worker {
+class Thread {
     public readonly st: stat.Sink;
 
     public readonly w: Worker;
@@ -30,7 +35,6 @@ class WorkerController implements workapi.Worker {
 
     public onDead: (graceful: boolean) => void = () => {};
     public onReady: () => void = () => {};
-    public onControl: (data: workapi.OutControl) => void = (data) => {};
 
     constructor(st: stat.Sink, body: Blob) {
         this.st = st;
@@ -40,8 +44,8 @@ class WorkerController implements workapi.Worker {
         } finally {
             URL.revokeObjectURL(url);
         }
-        this.w.onerror = () => {
-            this.kill("Worker error");
+        this.w.onerror = (err) => {
+            this.kill("Worker error: " + err.message);
         };
         this.w.onmessage = (event: MessageEvent) => {
             try {
@@ -81,50 +85,55 @@ class WorkerController implements workapi.Worker {
             e = new err.Runtime(e);
         }
 
-        this.w.terminate();
-        this.onDead(false);
-
-        this.onError(e);
+        const cb = this.finWork();
+        this.stop(false);
+        if(cb === null) {
+            this.st.reportError(e);
+        } else {
+            cb.onError(e);
+        }
     }
 
-    private onError(e: Error) {
+    public stop(graceful: boolean) {
+        console.assert(this.work === null);
+        this.w.terminate();
+        this.onDead(graceful);
+    }
+
+    public finWork(): Callbacks | null {
         const work = this.work;
-        if(work === null) {
-            this.st.reportError(e);
-            return;
-        }
+        if(work === null) return null;
         this.work = null;
 
         const cb = work.cb!;
         work.cb = null;
         work.worker = null;
+        return cb;
+    }
+
+    private onError(e: Error) {
+        const cb = this.finWork();
+        if(cb === null) {
+            this.kill("Worker sent result without work");
+            return;
+        }
         cb.onError(e);
     }
 
     private onResult(data: workapi.OutResult) {
-        const work = this.work;
-        if(work === null) {
+        const cb = this.finWork();
+        if(cb === null) {
             this.kill("Worker sent result without work");
             return;
         }
-        this.work = null;
-
-        const cb = work.cb!;
-        work.cb = null;
-        work.worker = null;
         cb.onDone(data);
-    }
-
-    public stop() {
-        console.assert(this.work === null);
-        this.w.terminate();
-        this.onDead(true);
     }
 
     private onMessage(data: workapi.Out) {
         if(data.control !== undefined) {
             const work = this.work;
-            if(!work || !work.cb!.onControl(this, data.control)) this.onControl(data.control);
+            if(work && work.cb!.onControl(data.control)) return;
+            this.kill("Worker sent unknown control message");
             return;
         }
 
@@ -141,34 +150,32 @@ class WorkerController implements workapi.Worker {
     }
 }
 
-export class WorkDispatcher {
+export class Dispatcher {
     private readonly st_work = new stat.Metric<number>(
-        "WorkDispatcher/work_queue_size"
+        "work_dispatcher/work_queue_size"
     ).attach(this.st);
     private readonly st_workers = new stat.Metric<number>(
-        "WorkDispatcher/workers"
+        "work_dispatcher/workers"
     ).attach(this.st);
     private readonly st_workers_free = new stat.Metric<number>(
-        "WorkDispatcher/workers_free"
+        "work_dispatcher/workers_free"
     ).attach(this.st);
     private readonly st_workers_started = new stat.Counter(
-        "WorkDispatcher/workers_started"
+        "work_dispatcher/workers_started"
     ).attach(this.st);
     private readonly st_workers_stopped = new stat.Counter(
-        "WorkDispatcher/workers_stopped", {"graceful": true}
+        "work_dispatcher/workers_stopped", {"graceful": true}
     ).attach(this.st);
     private readonly st_workers_killed = new stat.Counter(
-        "WorkDispatcher/workers_stopped", {"graceful": false}
+        "work_dispatcher/workers_stopped", {"graceful": false}
     ).attach(this.st);
 
-    private readonly workers = new Set<WorkerController>();
-    private workers_free: WorkerController[] = [];
+    private readonly workers = new Set<Thread>();
+    private workers_free: Thread[] = [];
 
     private readonly work = new Deque<Work>();
 
     private paused: number = 0;
-
-    public onControl: (wrk: workapi.Worker, data: workapi.OutControl) => void = () => {};
 
     constructor(
         private readonly st: stat.Sink,
@@ -190,7 +197,7 @@ export class WorkDispatcher {
 
     private kill_timer: number | null = null;
     private addWorker() {
-        const wrk = new WorkerController(this.st, this.worker_body);
+        const wrk = new Thread(this.st, this.worker_body);
 
         this.st_workers_started.inc();
 
@@ -199,7 +206,7 @@ export class WorkDispatcher {
             console.assert(this.workers_free.indexOf(wrk) === -1);
 
             if(this.workers.size > this.max_workers) {
-                wrk.stop();
+                wrk.stop(true);
                 return;
             }
 
@@ -226,15 +233,11 @@ export class WorkDispatcher {
             this.report();
         };
 
-        wrk.onControl = (data: workapi.OutControl) => {
-            this.onControl(wrk, data);
-        };
-
         this.workers.add(wrk);
         wrk.onReady();
     }
 
-    public push(cb: WorkCallbacks, input: workapi.InWork, transfer: Transferable[]): () => void {
+    public push(cb: Callbacks, input: workapi.InWork, transfer: Transferable[]): Controller {
         const work: Work = {
             cb: cb,
             input: input,
@@ -242,26 +245,34 @@ export class WorkDispatcher {
             worker: null,
         };
 
-        const cancel = () => {
-            const wrk = work.worker;
-            if(wrk !== null) {
-                wrk.kill(new err.Cancelled("Task cancelled"));
-                return;
-            }
-
-            const wcb = work.cb;
-            if(wcb !== null) {
-                work.cb = null;
-                wcb.onError(new err.Cancelled("Task cancelled"));
-                return;
-            }
-        };
-
         this.work.push(work);
         this.pull();
         this.report();
 
-        return cancel;
+        return {
+            sendControl(data: workapi.InControl, transfer: Transferable[]): boolean {
+                const wrk = work.worker;
+                if(wrk === null) return false;
+                wrk.sendControl(data, transfer);
+                return true;
+            },
+            kill(e: Error): void {
+                const wrk = work.worker;
+                if(wrk !== null) {
+                    console.assert(wrk.finWork() === cb);
+                    wrk.stop(false);
+                    cb.onError(e);
+                    return;
+                }
+
+                const wcb = work.cb;
+                if(wcb !== null) {
+                    work.cb = null;
+                    cb.onError(e);
+                    return;
+                }
+            },
+        };
     }
 
     private pull_scheduled: boolean = false;
@@ -285,7 +296,7 @@ export class WorkDispatcher {
                             clearInterval(tm);
                             this.kill_timer = null;
                         } else {
-                            wrk.stop();
+                            wrk.stop(true);
                         }
                     }, 1000);
                     this.kill_timer = tm;
