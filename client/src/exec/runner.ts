@@ -436,9 +436,9 @@ export default class Runner {
         });
     }
 
-    private onControl(ctl: wd.Controller, data: workapi.OutControl): boolean {
-        if(data.get_blob !== undefined) {
-            const ref = data.get_blob;
+    private onControl(ctl: wd.Controller, msg: workapi.OutControl): boolean {
+        if(msg.get_blob !== undefined) {
+            const ref = msg.get_blob;
             this.repo.read(ref).then((data) => {
                 ctl.sendControl({get_blob: [ref.id, data]}, [data]);
             }, (e) => {

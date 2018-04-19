@@ -44,8 +44,8 @@ class Thread {
         } finally {
             URL.revokeObjectURL(url);
         }
-        this.w.onerror = (err) => {
-            this.kill("Worker error: " + err.message);
+        this.w.onerror = (e) => {
+            this.kill("Worker error: " + e.message);
         };
         this.w.onmessage = (event: MessageEvent) => {
             try {
@@ -55,7 +55,7 @@ class Thread {
                     cause: err.dataOf(e),
                 }));
             }
-        }
+        };
     }
 
     private send(data: workapi.In, transfer: Transferable[] | undefined) {
@@ -150,6 +150,38 @@ class Thread {
     }
 }
 
+class WorkController implements Controller {
+    constructor(private _work: Work) {}
+
+    public sendControl(data: workapi.InControl, transfer: Transferable[]): boolean {
+        const work = this._work;
+        const wrk = work.worker;
+        if(wrk === null) return false;
+        wrk.sendControl(data, transfer);
+        return true;
+    }
+
+    public kill(e: Error): void {
+        const work = this._work;
+
+        const wrk = work.worker;
+        if(wrk !== null) {
+            const cb = wrk.finWork();
+            console.assert(cb !== null);
+            wrk.stop(false);
+            cb!.onError(e);
+            return;
+        }
+
+        const cb = work.cb;
+        if(cb !== null) {
+            work.cb = null;
+            cb.onError(e);
+            return;
+        }
+    }
+}
+
 export class Dispatcher {
     private readonly st_work = new stat.Metric<number>(
         "work_dispatcher/work_queue_size"
@@ -188,7 +220,7 @@ export class Dispatcher {
         this.st_workers_free.set(this.workers_free.length);
     }
 
-    private get max_workers(): number {
+    public get max_workers(): number {
         const w = (self.navigator.hardwareConcurrency | 0) - 1;
         if(w < 1) return 1;
         if(w > 128) return 128;
@@ -249,30 +281,7 @@ export class Dispatcher {
         this.pull();
         this.report();
 
-        return {
-            sendControl(data: workapi.InControl, transfer: Transferable[]): boolean {
-                const wrk = work.worker;
-                if(wrk === null) return false;
-                wrk.sendControl(data, transfer);
-                return true;
-            },
-            kill(e: Error): void {
-                const wrk = work.worker;
-                if(wrk !== null) {
-                    console.assert(wrk.finWork() === cb);
-                    wrk.stop(false);
-                    cb.onError(e);
-                    return;
-                }
-
-                const wcb = work.cb;
-                if(wcb !== null) {
-                    work.cb = null;
-                    cb.onError(e);
-                    return;
-                }
-            },
-        };
+        return new WorkController(work);
     }
 
     private pull_scheduled: boolean = false;
@@ -289,18 +298,7 @@ export class Dispatcher {
         while(this.workers_free.length !== 0) {
             const w = this.work.dequeue();
             if(w === undefined) {
-                if(this.kill_timer === null) {
-                    const tm = setInterval(() => {
-                        const wrk = this.workers_free.pop();
-                        if(wrk === undefined) {
-                            clearInterval(tm);
-                            this.kill_timer = null;
-                        } else {
-                            wrk.stop(true);
-                        }
-                    }, 1000);
-                    this.kill_timer = tm;
-                }
+                this.startKillTimer();
                 break;
             }
             if(w.cb === null) continue;
@@ -313,6 +311,20 @@ export class Dispatcher {
         }
 
         this.report();
+    }
+
+    private startKillTimer(): void {
+        if(this.kill_timer !== null) return;
+        const tm = self.setInterval(() => {
+            const wrk = this.workers_free.pop();
+            if(wrk === undefined) {
+                self.clearInterval(tm);
+                this.kill_timer = null;
+            } else {
+                wrk.stop(true);
+            }
+        }, 1000);
+        this.kill_timer = tm;
     }
 
     public pause(resume: Promise<void>): void {

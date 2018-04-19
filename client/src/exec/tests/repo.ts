@@ -3,7 +3,7 @@ import "@/polyfill";
 import * as err from "@/err";
 import * as stat from "@/stat";
 
-import {releaser, runTests, withStat} from "../test-util";
+import {asyncSleep, releaser, runTests, withStat} from "../test-util";
 
 import MemStorage from "../mem_storage";
 import MockAPI from "../mock_api";
@@ -16,12 +16,6 @@ function ref(size: number, ix: number): Ref {
         id: `remote/${size}/${ix}`,
         size: size,
     };
-}
-
-async function asyncSleep(ms: number): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-        self.setTimeout(() => resolve(), ms);
-    });
 }
 
 function env(): <T>(wrapped: (the_repo: BlobRepo, the_api: MockAPI) => Promise<T>) => Promise<T> {

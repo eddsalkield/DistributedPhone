@@ -55,6 +55,12 @@ export function writeLine(text: string) {
     self.document.body.appendChild(self.document.createElement("br"));
 }
 
+export async function asyncSleep(ms: number): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+        self.setTimeout(() => resolve(), ms);
+    });
+}
+
 export function releaser<T = void>(): [Promise<T>, (value?: T) => void] {
     let release!: (value?: T) => void;
     const pr = new Promise<T>((resolve, reject) => {
