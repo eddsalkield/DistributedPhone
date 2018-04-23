@@ -15,12 +15,12 @@ interface ErrorType {
 
 export abstract class Base extends Error {
     public static readonly kind: string | null = null;
-    public attr: Data;
+    public data: Data;
 
     constructor(message: string, attr?: ErrorAttr) {
         super(message);
         const tp = this.constructor as ErrorType;
-        this.attr = Object.assign({}, attr, {
+        this.data = Object.assign({}, attr, {
             "kind": tp.kind!,
             "message": message,
         });
@@ -75,10 +75,10 @@ export function fromData(d: Data): Base {
 export function dataOf(err: Error): Data {
     let stack = "" + err.stack;
     if(err instanceof Base) {
-        if(err.attr["stack"] !== undefined) {
-            stack = stack + "\n\n" + err.attr["stack"];
+        if(err.data["stack"] !== undefined) {
+            stack = stack + "\n\n" + err.data["stack"];
         }
-        return Object.assign({}, err.attr, {
+        return Object.assign({}, err.data, {
             "stack": stack,
         });
     } else {
@@ -92,7 +92,7 @@ export function dataOf(err: Error): Data {
 
 export function format(e: Error): string {
     if(e instanceof Base) {
-        return formatData(e.attr);
+        return formatData(e.data);
     } else {
         return `${Object.getPrototypeOf(e).constructor.name}: ${e.message}`;
     }
