@@ -22,12 +22,21 @@ def getToken(username):
 # description pdescription, and is initialised in the database. It is given it a unique project
 # ID (pID) which is returned, along with whether the operation was successful
 def createNewProject(username, pname, pdescription):
-    pID = 0
+    #find largest pID to date (by counting rows) and add 1
+    pID = 1 + c.execute("SELECT COUNT(*) FROM Project")
+    #find id relating to username
+    u = (username,)
+    customerID = c.execute('SELECT customerID FROM Project WHERE customername=?', u)
+    #put info into Project table
+    c.execute("INSERT INTO Project (pID, pname, pdescription, customerID) VALUES (pID, pname, pdescription, customerID)")
     return (True, pID)
 
 # Stores task in the list of unfinished tasks associated with project pID. Each task should
 # have a unique task ID
 def createNewTask(pID, task):
+    #find largest taskID to date (by counting rows) and add 1
+    taskID = 1 + c.execute("SELECT COUNT(*) FROM Project_task")
+    c.execute("INSERT INTO Project_task (taskID, task, pID) VALUES (taskID, task, pID)")
     return True
 
 # Convert blob blobID in project pID into a task, which is stored in the list of unfinished tasks
