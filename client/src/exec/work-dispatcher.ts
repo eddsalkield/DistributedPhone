@@ -163,17 +163,18 @@ class WorkController implements Controller {
 
     public kill(e: Error): void {
         const work = this._work;
+        let cb: Callbacks | null;
 
         const wrk = work.worker;
         if(wrk !== null) {
-            const cb = wrk.finWork();
+            cb = wrk.finWork();
             console.assert(cb !== null);
             wrk.stop(false);
             cb!.onError(e);
             return;
         }
 
-        const cb = work.cb;
+        cb = work.cb;
         if(cb !== null) {
             work.cb = null;
             cb.onError(e);
