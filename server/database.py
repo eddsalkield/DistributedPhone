@@ -63,7 +63,6 @@ def getToken(username):
 # ID (pID) which is returned, along with whether the operation was successful
 
 def createNewProject(username, pname, pdescription):
-<<<<<<< HEAD
     if username in projects:
         if pname in projects[username]:
             return False
@@ -73,24 +72,6 @@ def createNewProject(username, pname, pdescription):
     
     projects[username][pname] = {"blobs": {}, "blobids": 0,  "unfinishedTasks": [], "description": pdescription}
 
-=======
-    #find largest pID to date (by counting rows) and add 1
-    pID = 1 + c.execute("SELECT COUNT(*) FROM Project")
-    #find id relating to username
-    u = (username,)
-    customerID = c.execute('SELECT customerID FROM Project WHERE customername=?', u)
-    #put info into Project table
-    c.execute("INSERT INTO Project VALUES (pID, pname, pdescription, customerID)")
-    return (True, pID)
-
-# Stores task in the list of unfinished tasks associated with project pID. Each task should
-# have a unique task ID
-def createNewTask(pID, task):
-    #find largest taskID to date (by counting rows) and add 1
-    taskID = 1 + c.execute("SELECT COUNT(*) FROM Project_task")
-    #put info in task table
-    c.execute("INSERT INTO Project_task (taskID, task, pID) VALUES (taskID, task, pID)")
->>>>>>> 2f1fbffe5dc1d6cfbd811799c5f1e5f839f6393e
     return True
 
 # Creates a new blob, and stores it along with its metadata
@@ -111,7 +92,6 @@ def createNewBlob(username, pID, blob, metadata):
     return (True, bID)
 
 # Convert blob blobID in project pID into a task, which is stored in the list of unfinished tasks
-<<<<<<< HEAD
 def blobToTask(username, pID, blobID):
     try:
         test = projects[username][pID]["blobs"][blobID]
@@ -126,19 +106,6 @@ def blobToTask(username, pID, blobID):
     heapq.heappush(projects[username][pID]["unfinishedTasks"], (time, blobID))
 
     return True
-=======
-def blobToTask(pID, blobID):
-    #what does this mean?????
-    return True
-
-# Creates a new blob, and stores it along with its metadata
-def createNewBlob(pID, blob, metadata):
-    #find largest blobID to date (by counting rows) and add 1
-    blobID = 1 + c.execute("SELECT COUNT(*) FROM Data_blob")
-    #put info in blob table
-    c.execute("INSERT INTO Data_blob VALUES (blobID, blob, metadata, pID)")
-    return blobID
->>>>>>> 2f1fbffe5dc1d6cfbd811799c5f1e5f839f6393e
 
 # Return a dict mapping blobs IDs to their metadata. Can optionally specity a list of blobs
 # whose metadata we'd like
@@ -156,7 +123,6 @@ def getBlobMetadata(username, pID, blobIDs):
     return (True, metas)
 
 # Return blob blobID from project pID, along with its metadata
-<<<<<<< HEAD
 def getBlob(username, pID, blobID):
     try:
         b = projects[username][pID]["blobs"][blobID]
@@ -173,20 +139,6 @@ def deleteBlob(username, pID, blobID):
         return False
 
     del projects[username][pID]["blobs"][blobID]
-=======
-def getBlob(pID, blobID):
-    #find blob stuff relating to blobID
-    i = (blobID,)
-    #get metadata and blob
-    metadata = c.execute('SELECT metadata FROM Data_blob WHERE blobID=?', i)
-    blob = c.execute('SELECT blob FROM Data_blob WHERE blobID=?', i)
-    return (metadata, blob)
-
-# Deletes blob blobID from project pID, returns if successful
-def deleteBlob(pID, blobID):
-    i = (blobID,)
-    c.execute('DELETE FROM Data_blob WHERE blobID=?', i)
->>>>>>> 2f1fbffe5dc1d6cfbd811799c5f1e5f839f6393e
     return True
 
 
@@ -213,26 +165,9 @@ def getNewTask(username, pID):
         print("Fail2")
         return (False, 0, "fail2")
 
-<<<<<<< HEAD
     unf = projects[username][pID]["unfinishedTasks"]
     taskID = heapq.heappop(unf)[1]
     heapq.heappush(unf, (getTime(), taskID))
-=======
-# Returns a new task from the tasklist for the worker to get on with, along with a unique
-# identifier for the task
-def getNewTask(pID, workerID):
-    #look for a task without a worker
-    taskID = c.execute("SELECT TOP 1 taskID FROM Project_task WHERE workerID=NULL")
-    task = c.execute("SELECT task FROM Project_task WHERE taskID=taskID")
-    #label that task as being done by that worker
-    c.execute("UPDATE Project_task SET workerID=workerID WHERE taskID=taskID")
-    return (task, taskID)
-
-# Stores the list of blobs in the database, along with the metadata
-def taskDone(pID, taskID, blobs, blobmetadatas):
-    c.execute("INSERT INTO Completed_task VALUES (pID, taskID, blobs, blobmetadatas)")
-    return True 
->>>>>>> 2f1fbffe5dc1d6cfbd811799c5f1e5f839f6393e
 
     return (True, taskID, "succ")
 
