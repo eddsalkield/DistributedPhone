@@ -21,7 +21,7 @@ pptw1_response *pptw1_run(pptw1_request* req) {
     size_t n_blobs = req->n_blobs;
 
     // Return response
-    pptw1_response response;
+    pptw1_response response = malloc(sizeof(struct pptw1_response) + n_blobs * sizeof(struct pptw1_blobref));
     response->n_blobs = n_blobs; // blob for each blob
     response->blobs[n_blobs];
     
