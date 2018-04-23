@@ -49,10 +49,10 @@ const TAG_FLOAT32 = 0xe0 + 26;
 const TAG_FLOAT64 = 0xe0 + 27;
 const TAG_BREAK = 0xff;
 
-const SIMPLE_FALSE = 20;
-const SIMPLE_TRUE = 21;
-const SIMPLE_NULL = 22;
-const SIMPLE_UNDEFINED = 23;
+export const SIMPLE_FALSE = 20;
+export const SIMPLE_TRUE = 21;
+export const SIMPLE_NULL = 22;
+export const SIMPLE_UNDEFINED = 23;
 
 function isUint(tag: number): boolean {
     return TAG_UINT <= tag && tag < TAG_UINT_END;
@@ -610,6 +610,11 @@ export class Reader {
         return this._map(this._rDataTag());
     }
 
+    public simple(): number {
+        this._onData();
+        return this._simple(this._rDataTag());
+    }
+
     public boolean(): boolean {
         this._onData();
         return this._boolean(this._rDataTag());
@@ -694,6 +699,11 @@ export class Reader {
     public maybeMap(): null | number | undefined {
         if(!this._onMaybeData()) return null;
         return this._map(this._rDataTag());
+    }
+
+    public maybeSimple(): null | number {
+        if(!this._onMaybeData()) return null;
+        return this._simple(this._rDataTag());
     }
 
     public maybeBoolean(): null | boolean {

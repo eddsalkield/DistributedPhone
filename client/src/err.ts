@@ -1,5 +1,6 @@
 declare interface ErrorAttr {
-    [name: string]: string | number | boolean | Data;
+    [name: string]: string | number | boolean | Data | undefined;
+    "cause"?: Data;
 }
 
 export declare interface Data extends ErrorAttr {
