@@ -28,7 +28,7 @@ def createNewProject(username, pname, pdescription):
     u = (username,)
     customerID = c.execute('SELECT customerID FROM Project WHERE customername=?', u)
     #put info into Project table
-    c.execute("INSERT INTO Project (pID, pname, pdescription, customerID) VALUES (pID, pname, pdescription, customerID)")
+    c.execute("INSERT INTO Project VALUES (pID, pname, pdescription, customerID)")
     return (True, pID)
 
 # Stores task in the list of unfinished tasks associated with project pID. Each task should
@@ -36,16 +36,21 @@ def createNewProject(username, pname, pdescription):
 def createNewTask(pID, task):
     #find largest taskID to date (by counting rows) and add 1
     taskID = 1 + c.execute("SELECT COUNT(*) FROM Project_task")
+    #put info in task table
     c.execute("INSERT INTO Project_task (taskID, task, pID) VALUES (taskID, task, pID)")
     return True
 
 # Convert blob blobID in project pID into a task, which is stored in the list of unfinished tasks
 def blobToTask(pID, blobID):
+    #what does this mean?????
     return True
 
 # Creates a new blob, and stores it along with its metadata
 def createNewBlob(pID, blob, metadata):
-    blobID = 0
+    #find largest blobID to date (by counting rows) and add 1
+    blobID = 1 + c.execute("SELECT COUNT(*) FROM Data_blob")
+    #put info in blob table
+    c.execute("INSERT INTO Data_blob VALUES (blobID, blob, metadata, pID)")
     return blobID
 
 # Return a dict mapping blobs IDs to their metadata. Can optionally specity a list of blobs
@@ -60,12 +65,17 @@ def getBlobMetadata(*args):
 
 # Return blob blobID from project pID, along with its metadata
 def getBlob(pID, blobID):
-    metadata = None
-    blob = None
+    #find blob stuff relating to blobID
+    i = (blobID,)
+    #get metadata and blob
+    metadata = c.execute('SELECT metadata FROM Data_blob WHERE blobID=?', i)
+    blob = c.execute('SELECT blob FROM Data_blob WHERE blobID=?', i)
     return (metadata, blob)
 
 # Deletes blob blobID from project pID, returns if successful
 def deleteBlob(pID, blobID):
+    i = (blobID,)
+    c.execute('DELETE FROM Data_blob WHERE blobID=?', i)
     return True
 
 
@@ -73,14 +83,18 @@ def deleteBlob(pID, blobID):
 
 # Returns a new task from the tasklist for the worker to get on with, along with a unique
 # identifier for the task
-def getNewTask(pID):
-    task = None
-    taskID = 0
+def getNewTask(pID, workerID):
+    #look for a task without a worker
+    taskID = c.execute("SELECT TOP 1 taskID FROM Project_task WHERE workerID=NULL")
+    task = c.execute("SELECT task FROM Project_task WHERE taskID=taskID")
+    #label that task as being done by that worker
+    c.execute("UPDATE Project_task SET workerID=workerID WHERE taskID=taskID")
     return (task, taskID)
 
 # Stores the list of blobs in the database, along with the metadata
 def taskDone(pID, taskID, blobs, blobmetadatas):
-   return True 
+    c.execute("INSERT INTO Completed_task VALUES (pID, taskID, blobs, blobmetadatas)")
+    return True 
 
 
 
