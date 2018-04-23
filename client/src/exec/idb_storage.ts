@@ -120,7 +120,9 @@ export default class IDBStorage implements Storage {
                 }
                 const data = res["data"];
                 if(!(data instanceof ArrayBuffer)) {
-                    reject(new err.State("Invalid data in IDBStorage: data not ArrayBuffer DEBUG:" + data));
+                    reject(new err.State("Invalid data in IDBStorage: data not ArrayBuffer", {
+                        idb_invalid_data: "" + res["data"],
+                    }));
                     return;
                 }
                 resolve(data);
