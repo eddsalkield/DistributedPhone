@@ -15,14 +15,14 @@ if(!Promise.prototype.finally) {
     }
 }
 
-if(self.document) {
-    self.document.write = function() {
+if(typeof window !== 'undefined') {
+    window.document.write = function() {
         throw new Error("document.open() is bad");
     }
-    self.document.open = function() {
+    window.document.open = function() {
         throw new Error("document.open() is bad");
     }
-    self.document.close = function() {
+    window.document.close = function() {
         throw new Error("document.open() is bad");
     }
 }

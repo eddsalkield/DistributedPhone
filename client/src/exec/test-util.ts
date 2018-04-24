@@ -117,7 +117,7 @@ function diffArrayBuffer(a1: ArrayBuffer, a2: ArrayBuffer): number {
     const v1 = new Uint8Array(a1), v2 = new Uint8Array(a2);
     const l = Math.min(v1.length, v2.length);
     for(let i = 0; i < l; i += 1) {
-        if(v1[i] !== v2[i]) return l;
+        if(v1[i] !== v2[i]) return i;
     }
     if(v1.length !== v2.length) return l;
     return -1;

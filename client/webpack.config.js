@@ -4,7 +4,7 @@ const webpack = require('webpack');
 distdir = path.resolve(__dirname, "dist");
 
 module.exports = function(env, argv) {
-  if(!env) env = {dev: true, tests: true};
+  if(!env) env = {dev: true, tests: true, utils: true};
   function makeConfig(target, tsconfig) {
     return {
       target: target,
@@ -45,6 +45,7 @@ module.exports = function(env, argv) {
 
   as_worker = makeConfig("webworker", "tsconfig-worker.json");
   as_dom = makeConfig("web", "tsconfig-dom.json");
+  as_node = makeConfig("node", "tsconfig-node.json");
 
   as_worker.entry["worker"] =  "./src/worker/worker.ts";
 
@@ -57,5 +58,13 @@ module.exports = function(env, argv) {
     as_dom.entry["test-exec-idb"] = "./src/exec/tests/idb.ts";
   }
 
-  return [as_worker, as_dom];
+  if(env.utils) {
+    as_node.entry["node-executor"] =  "./src/node-executor.ts";
+  }
+
+  const outs = [];
+  for(const kind of [as_worker, as_dom, as_node]) {
+    if(Object.keys(kind.entry).length > 0) outs.push(kind);
+  }
+  return outs;
 }
