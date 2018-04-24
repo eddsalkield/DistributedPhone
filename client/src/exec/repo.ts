@@ -530,7 +530,7 @@ export class BlobRepo {
         try {
             console.assert(id.startsWith("remote/"));
 
-            this.provider.getBlob(id.slice(7)).then((data) => {
+            this.provider.getBlob(id.slice(7), expected_size).then((data) => {
                 const real_size = data.byteLength;
                 if(real_size !== expected_size) {
                     this.st.reportError(new err.State("Blob size changed", {

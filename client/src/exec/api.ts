@@ -41,7 +41,8 @@ export interface TaskResultRefused extends TaskResultBase {
 export type TaskResult = TaskResultOK | TaskResultError | TaskResultRefused;
 
 export interface BlobProvider {
-    getBlob(name: string): Promise<ArrayBuffer>;
+    // expected_size is provided for accounting purposes.
+    getBlob(name: string, expected_size: number): Promise<ArrayBuffer>;
 
     /* Maximum number of bytes to store. */
     readonly cache_max: number;

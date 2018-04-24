@@ -69,7 +69,7 @@ export default class MockAPI implements api.WorkProvider {
         });
     }
 
-    public getBlob(id: string): Promise<ArrayBuffer> {
+    public getBlob(id: string, expected_size: number): Promise<ArrayBuffer> {
         return new Promise((resolve, reject) => {
             const data = this.blobs.get(id);
             if(data) resolve(data.slice(0));
@@ -96,8 +96,9 @@ export default class MockAPI implements api.WorkProvider {
             if(!t) break;
             for(const id of [t.program].concat(t.in_blobs)) {
                 if(bi.get(id) !== undefined) continue;
+                const blob = this.blobs.get(id);
                 bi.set(id, {
-                    size: this.blobs.get(id)!.byteLength,
+                    size: blob !== undefined ? blob.byteLength : 42,
                 });
             }
             ts.push(t);
@@ -117,6 +118,8 @@ export default class MockAPI implements api.WorkProvider {
                 continue;
             }
             this.results.set(out.id, out);
+
+            console.log(out);
 
             if(out.status === "ok") this.task_cnt_ok.inc();
             else if(out.status === "refused") this.task_cnt_refused.inc();
