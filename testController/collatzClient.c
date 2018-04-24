@@ -17,15 +17,12 @@ inline __uint128_t nextStep (__uint128_t n) {
 // Input on control, Output in blob
 
 struct pptw1_response *pptw1_run(struct pptw1_request* req) {
-    
-    // Number of blobs we dealing with
-    size_t n_blobs = req->n_blobs;
 
     // Return response
     struct pptw1_response * response = malloc(sizeof(struct pptw1_response) + n_blobs * sizeof(struct pptw1_blobref));
 
     // assert blobs == 0 (input in control)
-    assert(response->n_blobs == 0);
+    assert(req->n_blobs == 0);
     response->n_blobs = 1; // Output a single blob
 
     // Extract blob data from request - hoping can do this way?
