@@ -272,7 +272,7 @@ function testCancel() {
             ctl1.kill(new err.Cancelled("Cancelled 1"));
         }, 200);
 
-        ctl2.kill(new err.Cancelled("Cancelled 0"));
+        ctl2.kill(new err.Cancelled("Cancelled 2"));
 
         await Promise.race([prFail.then((e) => {throw e;}), Promise.all([
             pr0, pr1, pr2,
