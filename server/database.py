@@ -4,7 +4,9 @@
 # Test implementation
 from datetime import datetime
 from time import mktime
-import heapq
+import heapq, os
+
+from header import *
 
 def getTime():
     return mktime(datetime.now().timetuple())
@@ -12,11 +14,22 @@ def getTime():
 def salthash(passwd, salt):
     return passwd
 
-ctoken = 0
 def generateToken():
-    global ctoken
-    ctoken+=1
-    return ctoken   # This is a terrible idea - don't do this
+    tok = ""
+    tokenGenerated = False
+    while not tokenGenerated:
+        for i in range(0, TOKENSIZE):
+            done = False
+            while not done:
+                c = os.urandom(1).decode("ascii", "ignore")
+                if c != 0:
+                    done = True
+                    tok += c
+
+        # Ensure the token is unique
+        tokenGenerated = tok not in sessions
+
+    return tok
 
 users = {}	# Maps username to (password, accesslevel)
 sessions = {}   # Maps a username to a session
@@ -29,33 +42,56 @@ def register(username, password, accesslevel):
     if username in users:
         return False
     else:
-        users[username] = (salthash(password, username), accesslevel)
+        users[username] = {"hashpass": salthash(password, username), "accesslevel": accesslevel, "issuedTasks": []}
         return True
 
 # Returns whether the username corresponds to the password of a user, of level accesslevel
 def login(username, password, accesslevel):
     if username in users:
     # Test for correct credentials
-        if users[username] == (salthash(password, username), accesslevel):
+        if users[username]["hashpass"] == salthash(password, username) and users[username]["accesslevel"] == accesslevel:
             # Create a new session
-            sessions[username] = {}
-            s = sessions[username]
+            token = generateToken()
+            sessions[token] = {}
+
+            s = sessions[token]
             t = getTime()
-            s["token"] = generateToken()
+            s["username"] = username
             s["starttime"] = t
             s["accesslevel"] = accesslevel
-            return (True, s["token"])
+            return (True, token)
     return (False, 0)
 
-# Returns the requested user's token, in case the server needs it again
-# Also returns whether the user was currently logged in
-def getToken(username): 
-    if username not in sessions:
+
+## Allows extraction of the user from currently active sessions. This should be cached in front of the database
+def querySession(token, query):
+    if query not in ["username", "starttime", "accesslevel", "issuedTasks"]:
         return (False, 0)
-    else:
-        token = sessions[username]["token"]
-        return (True, token)
     
+    if token not in sessions:
+        return (False, 0)
+    
+    return (True, sessions[token][query])
+    
+# Deletes the session
+def deleteSession(data, kind):
+    if kind == "token":
+        if token not in sessions:
+            return False
+        else:
+            del sessions[token]
+            return True
+    elif kind == "username":
+        result = False
+        for i, (name, sesh) in enumerate(sessions.items()):
+            if sesh["username"] == data:
+                result = True
+                del sessions[i]
+                break
+
+        return result
+    else:
+        return False
 
 ## CUSTOMER METHODS ##
 # Creates a new project on behalf of customer username. The project is called pname, has
@@ -105,7 +141,7 @@ def blobToTask(username, pID, blobID):
     time = getTime()
     heapq.heappush(projects[username][pID]["unfinishedTasks"], (time, blobID))
 
-    return True
+    return (True, projects[username][pID]["unfinishedTasks"])
 
 # Return a dict mapping blobs IDs to their metadata. Can optionally specity a list of blobs
 # whose metadata we'd like
@@ -143,49 +179,58 @@ def deleteBlob(username, pID, blobID):
 
 
 ## WORKER METHODS ##
-# username here refers to the username of the person who created the project
 
 # Returns a unique identifier for a task from the tasklist for the worker to get on with
-def getNewTask(username, pID):
+def getNewTask(customername, pID, username):
     try:
-        b = projects[username]
+        b = projects[customername]
     except Exception:
         print("Fail1")
         return (False, 0, "fail1")
 
 
     try:
-        b = projects[username][pID]
+        b = projects[customername][pID]
     except Exception:
         print("Fail3")
         return (False, 0, "fail3")
     
     # Test for remaining tasks
-    if projects[username][pID]["unfinishedTasks"] == []:
+    if projects[customername][pID]["unfinishedTasks"] == []:
         print("Fail2")
         return (False, 0, "fail2")
 
-    unf = projects[username][pID]["unfinishedTasks"]
+    # Find the next unfinished task
+    unf = projects[customername][pID]["unfinishedTasks"]
     taskID = heapq.heappop(unf)[1]
     heapq.heappush(unf, (getTime(), taskID))
+
+    # Add this task onto the user's list of unfinished tasks
+    
+    users[username]["issuedTasks"] += ((customername, pID, taskID),)
 
     return (True, taskID, "succ")
 
 # Stores the list of blobs in the database, along with the metadata
-def taskDone(username, pID, taskID, blobsandmetas):
+def taskDone(customername, pID, taskID, blobsandmetas, username):
     try:
-        b = projects[username][pID]["blobs"][taskID]
+        b = projects[customername][pID]["blobs"][taskID]
     except Exception:
-        return False
+        return (False, "msg2")
     
+    # Test that this phone completed a task it was supposed to
+    if not (customername, pID, taskID) in users[username]["issuedTasks"]:
+        #return (False, str(users[username]["issuedTasks"]) + "|" + customername + "|" + pID + "|" + str(taskID))
+        return (False, "msg1")
+
     # Take the old task off the task list
-    for i, (time, bID) in enumerate(projects[username][pID]["unfinishedTasks"]):
+    for i, (time, bID) in enumerate(projects[customername][pID]["unfinishedTasks"]):
         if bID == taskID:
-            del projects[username][pID]["unfinishedTasks"][i]
+            del projects[customername][pID]["unfinishedTasks"][i]
             break
 
     # Create all the new blobs
     for (blob, meta) in blobsandmetas:
-        createNewBlob(username, pID, blob, meta)
+        createNewBlob(customername, pID, blob, meta)
 
-    return True 
+    return (True, str(projects[customername][pID]["unfinishedTasks"]))
