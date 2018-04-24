@@ -25,9 +25,9 @@ struct pptw1_response *pptw1_run(struct pptw1_request* req) {
     assert(req->n_blobs == 0);
     response->n_blobs = 1; // Output a single blob
 
-    // Extract blob data from request - hoping can do this way?
+    // Extract blob data from request
     struct pptw1_blobref reqControlBlob = req->control;
-    __uint128_t *data = (__uint128_t *)(reqControlBlob.data); // eeeek
+    __uint128_t *data = (__uint128_t *)(reqControlBlob.data); 
     __uint128_t left = data[0];
     __uint128_t right = data[1];
     __uint128_t range = right - left;
