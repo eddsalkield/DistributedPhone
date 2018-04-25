@@ -144,8 +144,8 @@ class RootServer:
         if database.querySession(token, "accesslevel")[1] != "customer":
             return errormsg("Invalid access level")
         
-        if not database.createNewProject(database.querySession(token, "username")[1], pname, pdescription):
-            return errormsg("Database failed on createNewProject")
+        if not database.createNewProject(pname, pdescription):
+            return errormsg("Sorry, project name is taken.")
 
         return success()
 
@@ -173,8 +173,7 @@ class RootServer:
         if database.querySession(token, "accesslevel")[1] != "customer":
             return errormsg("Invalid access level.")
 
-        username = database.querySession(token, "username")[1]
-        (succ, blobID) = database.createNewBlob(username, pname, blob, metadata)
+        (succ, blobID) = database.createNewBlob(pname, blob, metadata)
         if succ:
             return(cbor.dumps({'success': True, 'error': '', 'blobID': blobID}))
         else:
@@ -203,12 +202,11 @@ class RootServer:
         if database.querySession(token, "accesslevel")[1] != "customer":
             return errormsg("Invalid access level.")
 
-        username = database.querySession(token, "username")[1]
-        (succ, msg) = database.blobToTask(username, pname, blobID)
+        (succ, msg) = database.blobToTask(pname, blobID)
         if not succ:
-            return errormsg("Database failure: " + str(msg) )
+            return errormsg("Database failure: " + msg)
 
-        return(cbor.dumps({'success': True, 'error': '', 'msg': msg}))
+        return(cbor.dumps({'success': True, 'error': ''}))
         return success()
 
     # Token, pname, blobIDs
@@ -236,13 +234,14 @@ class RootServer:
         if database.querySession(token, "accesslevel")[1] != "customer":
             return errormsg("Invalid access level.")
 
-        username = database.querySession(token, "username")[1] 
-        (succ, metas) = database.getBlobMetadata(username, pname, blobIDs)
+        (succ, metas) = database.getBlobMetadata(pname, blobIDs)
+        if not succ:
+            return errormsg("Database failure: " + metas)
         return(cbor.dumps({'success': True, 'error': '', 'metadata': metas}))
     
     @cherrypy.expose
-    # token, pname, blobIDs
-    def getBlobs(self):
+    # token, pname, name
+    def getBlob(self):
         # Get request body
         try:
             body = cbor.loads(cherrypy.request.body.read())
@@ -253,22 +252,19 @@ class RootServer:
         try:
             token = str(body["token"])
             pname = str(body["pname"])
-            blobIDs = []
-            for i, blob in enumerate(body["blobIDs"]):
-                blobIDs.append(int(blob))
+            name = int(body["name"])
         except Exception:
             return errormsg("Invalid inputs")
 
         if not checkSessionActive(token):
             return errormsg("Session expired or invalid token in logout. Please try again.")
 
-        username = database.querySession(token, "username")[1] 
-        bloblist = []
-        for blobID in blobIDs:
-            (succ, b, m) = database.getBlob(username, pname, blobID)
-            bloblist += (b, m)
+        (succ, b, m) = database.getBlob(pname, name)
 
-        return cbor.dumps({'success': True, 'error': '', 'blobs': bloblist})
+        if not succ:
+            return errormsg("Database error")
+
+        return cbor.dumps({'success': True, 'error': '', 'blob': b, 'metadata': m})
 
     # token, pname, blobID
     @cherrypy.expose
@@ -289,20 +285,21 @@ class RootServer:
 
         if not checkSessionActive(token):
             return errormsg("Session expired or invalid token in logout. Please try again.")
-        
-        username = database.querySession(token, "username")[1] 
-        if database.querySession(token, "accesslevel")[1] != "customer":
+
+        (succ, accesslevel) = database.querySession(token, "accesslevel")
+        if not succ:
+            return errormsg("Database could not identify accesslevel. Invalud session.")
+        if accesslevel != "customer":
             return errormsg("Invalid access level.")
 
-        username = database.querySession(token, "username")[1] 
-        succ = database.deleteBlob(username, pname, blobID)
+        (succ, msg) = database.deleteBlob(pname, blobID)
         if not succ:
-            return errormsg("Database failed")
+            return errormsg("Database failed: " + msg)
         return success()
 
-    # token, customername, pname
+    # token, pname, maxtasks
     @cherrypy.expose
-    def getNewTask(self):
+    def getTasks(self):
         # Get request body
         try:
             body = cbor.loads(cherrypy.request.body.read())
@@ -312,28 +309,28 @@ class RootServer:
         # Sanity check inputs, check access level
         try:
             token = str(body["token"])
-            username = database.querySession(token, "username") [1]
-            customername = str(body["customername"])
-            print("Customer name: " + customername)
+            username = database.querySession(token, "username")[1]
             print("Session name: " + username)
             pname = str(body["pname"])
+            maxtasks = int(body["maxtasks"])
         except Exception:
             return errormsg("Invalid inputs")
 
         if not checkSessionActive(token):
             return errormsg("Session expired or invalid token in logout. Please try again.")
 
-        (succ, bID, how) = database.getNewTask(customername, pname, username)
+        (succ, tasks, taskIDs) = database.getTasks(pname, username, maxtasks)
         if not succ:
-            return errormsg("Database failed " + how)
+            return errormsg("Database failed: " + tasks)
 
-        return cbor.dumps({"success": True, "error": "", "taskID": bID})
+        # Returns a list of up to maxtasks tasks
+        return cbor.dumps({"success": True, "error": "", "tasks": tasks, "taskIDs": taskIDs})
 
     # Takes the token, the customer name and project name being worked on, the task ID, and blobsandmetas, a list of
     # tuples mapping each blob to its metadata
-    # token, customername, pname, taskID, blobsandmetas
+    # token, pname, taskID, results
     @cherrypy.expose
-    def taskDone(self):
+    def sendTasks(self):
         # Get request body
         try:
             body = cbor.loads(cherrypy.request.body.read())
@@ -344,26 +341,32 @@ class RootServer:
         try:
             token = str(body["token"])
             username = database.querySession(token, "username") [1]
-            customername = str(body["customername"])
             pname = str(body["pname"])
             taskID = int(body["taskID"])
-            blobsandmetas = body["blobsandmetas"]
+            results = body["results"]
+            metadatas = body["metadatas"]
+            status = str(body["status"])
         except Exception:
             return errormsg("Invalid inputs")
         
-        if not all(isInstance(item, tuple) for item in blobsandmetas):
+        if not all(isInstance(item, tuple) for item in results):
             return errormsg("Blobs and metas in invalid format - supposed to be a list of tuples")
 
         if not checkSessionActive(token):
             return errormsg("Session expired or invalid token in logout. Please try again.")
 
-        (succ, msg) = database.taskDone(customername, pname, taskID, blobsandmetas, username)
+        (succ, msg) = database.sendTasks(pname, taskID, results, metadatas, username, status)
         if not succ:
-            return errormsg("Database error")
+            return errormsg("Database error: " + msg)
 
-        return(cbor.dumps({'success': True, 'error': '', 'msg': msg}))
+        return(cbor.dumps({'success': True, 'error': ''}))
         return success()
 
+    @cherrypy.expose
+    def reboot(self):
+        if not PRODUCTION:
+            cherrypy.engine.restart()
+            return success()
 
 if __name__ == '__main__':
     cherrypy.config.update({'server.socket_host': '0.0.0.0',

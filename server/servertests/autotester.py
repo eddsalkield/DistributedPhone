@@ -3,15 +3,26 @@ import sys
 from tests import *
 import time
 
+VERBOSE = True  # Set to true if you want all data to be printed
+
 def test(res, testname):
     (succ, data) = res
     time.sleep(0.1)
     if succ:
         print(testname + " AOK")
+        if VERBOSE:
+            print(data)
         return data        
     else:
         print(testname + " FAILED")
+        if VERBOSE:
+            print(data)
         sys.exit(str(data))
+
+# Start test
+print("Rebooting server...")
+reboot()
+time.sleep(1)
 
 test(testPing(), "testPing")
 test(registerCustomer("Edd", "password1"), "testRegisterCustomer")
@@ -27,27 +38,28 @@ data = test(createNewBlob(ctok, "Project", "blob1", "meta1"), "testCreateNewBlob
 b1 = data["blobID"]
 data = test(createNewBlob(ctok, "Project", "blob2", "meta2"), "testCreateNewBlob")
 b2 = data["blobID"]
+data = test(createNewBlob(ctok, "Project", "blob3", "meta3"), "testCreateNewBlob")
+b3 = data["blobID"]
 
 # Test blobs are correctly returned
 data = test(blobToTask(ctok, "Project", b1), "testBlobToTask")
-print(data)
 data = test(blobToTask(ctok, "Project", b2), "testBlobToTask")
-print(data)
+data = test(blobToTask(ctok, "Project", b3), "testBlobToTask")
 
 data = test(getBlobMetadata(ctok, "Project", []), "testGetBlobMetadata")
-print(data)
 
-data = test(getBlobs(ctok, "Project", [b1, b2]), "testGetBlobs")
-print(data)
+data = test(getBlob(ctok, "Project", b1), "testGetBlob")
 
+data = test(getBlob(ctok, "Project", b2), "testGetBlob")
+data = test(getBlob(ctok, "Project", b3), "testGetBlob")
 
 # Worker tests
-data = test(getNewTask(wtok, "Edd", "Project"), "testGetNewTask")
-print(data)
-data = test(getNewTask(wtok, "Edd", "Project"), "testGetNewTask")
-print(data)
+data = test(getTasks(wtok, "Project", 2), "testGetTasks")
+data = test(getTasks(wtok, "Project", 2), "testGetTasks")
+data = test(getTasks(wtok, "Project", 2), "testGetTasks")
 
-data = test(taskDone(wtok, "Edd", "Project", b1, []), "testTaskDone")
-print(data)
-data = test(taskDone(wtok, "Edd", "Project", b2, []), "testTaskDone")
-print(data)
+data = test(sendTasks(wtok, "Project", b1, [], [], "ok"), "testSendTasks")
+data = test(sendTasks(wtok, "Project", b2, [], [], "refused"), "testSendTasks")
+data = test(sendTasks(wtok, "Project", b3, [], [], "error"), "testSendTasks")
+data = test(getTasks(wtok, "Project", 2), "testGetTasks")
+data = test(getTasks(wtok, "Project", 2), "testGetTasks")

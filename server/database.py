@@ -4,7 +4,9 @@
 # Test implementation
 from datetime import datetime
 from time import mktime
-import heapq, os
+from Crypto.Random import random
+import numpy as np
+import string
 
 from header import *
 
@@ -15,19 +17,10 @@ def salthash(passwd, salt):
     return passwd
 
 def generateToken():
-    tok = ""
-    tokenGenerated = False
-    while not tokenGenerated:
-        for i in range(0, TOKENSIZE):
-            done = False
-            while not done:
-                c = os.urandom(1).decode("ascii", "ignore")
-                if c != 0:
-                    done = True
-                    tok += c
-
-        # Ensure the token is unique
-        tokenGenerated = tok not in sessions
+    done = False
+    while not done:
+        tok = ''.join(random.choice(string.ascii_letters) for m in range(TOKENSIZE))
+        done = tok not in sessions
 
     return tok
 
@@ -37,12 +30,12 @@ sessions = {}   # Maps a username to a session
 projects = {}   # Maps project names to projects
 
 ## AUTHENTICATION ##
-# Registers a new user in the database
+# Registers a new user in the database. Returns true iff successful
 def register(username, password, accesslevel):
     if username in users:
         return False
     else:
-        users[username] = {"hashpass": salthash(password, username), "accesslevel": accesslevel, "issuedTasks": []}
+        users[username] = {"hashpass": salthash(password, username), "accesslevel": accesslevel, "issuedTasks": {}}
         return True
 
 # Returns whether the username corresponds to the password of a user, of level accesslevel
@@ -98,28 +91,25 @@ def deleteSession(data, kind):
 # description pdescription, and is initialised in the database. It is given it a unique project
 # ID (pID) which is returned, along with whether the operation was successful
 
-def createNewProject(username, pname, pdescription):
-    if username in projects:
-        if pname in projects[username]:
-            return False
-    else:
-        projects[username] = {}
+def createNewProject(pname, pdescription):
+    if pname in projects:
+        return False
     # No other project by this user has the given name
     
-    projects[username][pname] = {"blobs": {}, "blobids": 0,  "unfinishedTasks": [], "description": pdescription}
+    projects[pname] = {"blobs": {}, "blobids": 0,  "unfinishedTasks": [], "description": pdescription}
 
     return True
 
 # Creates a new blob, and stores it along with its metadata
-def createNewBlob(username, pID, blob, metadata):
+def createNewBlob(pID, blob, metadata):
     # Check that the project exists
     try:
-        test = projects[username][pID]
+        test = projects[pID]
     except Exception:
         return (False, 0)
 
     # Create the new blob
-    p = projects[username][pID]
+    p = projects[pID]
     bID = p["blobids"]
     p["blobids"] += 1
 
@@ -128,109 +118,123 @@ def createNewBlob(username, pID, blob, metadata):
     return (True, bID)
 
 # Convert blob blobID in project pID into a task, which is stored in the list of unfinished tasks
-def blobToTask(username, pID, blobID):
+def blobToTask(pID, blobID):
     try:
-        test = projects[username][pID]["blobs"][blobID]
+        test = projects[pID]["blobs"][blobID]
     except Exception:
-        return False
+        return (False, "Failed to find blob")
 
     # The blob exists within the project
-    projects[username][pID]["blobs"][blobID]["task"] = True
+    projects[pID]["blobs"][blobID]["task"] = True
 
     # Push a copy onto the queue of "to-do" tasks
-    time = getTime()
-    heapq.heappush(projects[username][pID]["unfinishedTasks"], (time, blobID))
+    projects[pID]["unfinishedTasks"].append(blobID)
 
-    return (True, projects[username][pID]["unfinishedTasks"])
+    return (True, "")
 
 # Return a dict mapping blobs IDs to their metadata. Can optionally specity a list of blobs
 # whose metadata we'd like
-def getBlobMetadata(username, pID, blobIDs):
+def getBlobMetadata(pID, blobIDs):
     try:
-        test = projects[username][pID]
+        test = projects[pID]
     except Exception:
-        return (False, 0)
+        return (False, "Failed to find project")
 
     metas = {}
-    for blobID, blob in projects[username][pID]["blobs"].items():
+    for blobID, blob in projects[pID]["blobs"].items():
         if blobIDs == [] or blobID in blobIDs:
             metas[blobID] = blob["metadata"]
 
     return (True, metas)
 
 # Return blob blobID from project pID, along with its metadata
-def getBlob(username, pID, blobID):
+def getBlob(pID, blobID):
     try:
-        b = projects[username][pID]["blobs"][blobID]
+        b = projects[pID]["blobs"][blobID]
     except Exception:
         return (False, 0, 0)
     
     return (True, b["blob"], b["metadata"])
 
 # Deletes blob blobID from project pID, returns if successful
-def deleteBlob(username, pID, blobID):
+def deleteBlob(pID, blobID):
     try:
-        b = projects[username][pID]["blobs"][blobID]
+        b = projects[pID]["blobs"][blobID]
     except Exception:
-        return False
+        return (False, "Could not fetch blobs")
 
-    del projects[username][pID]["blobs"][blobID]
-    return True
+    del projects[pID]["blobs"][blobID]
+    return (True, "")
 
 
 ## WORKER METHODS ##
 
 # Returns a unique identifier for a task from the tasklist for the worker to get on with
-def getNewTask(customername, pID, username):
+def getTasks(pID, username, maxtasks):
     try:
-        b = projects[customername]
+        b = projects[pID]
     except Exception:
-        print("Fail1")
-        return (False, 0, "fail1")
+        return (False, "Project does not exist", 0)
 
-
+    # Test if the unfinished tasks array has been constructed
     try:
-        b = projects[customername][pID]
+        users[username]["issuedTasks"][pID]
     except Exception:
-        print("Fail3")
-        return (False, 0, "fail3")
-    
-    # Test for remaining tasks
-    if projects[customername][pID]["unfinishedTasks"] == []:
-        print("Fail2")
-        return (False, 0, "fail2")
+        users[username]["issuedTasks"][pID] = []
+        
 
-    # Find the next unfinished task
-    unf = projects[customername][pID]["unfinishedTasks"]
-    taskID = heapq.heappop(unf)[1]
-    heapq.heappush(unf, (getTime(), taskID))
+    # Find new tasks to be done
+    taskIDs = list(map(int, np.setdiff1d(projects[pID]["unfinishedTasks"], users[username]["issuedTasks"][pID]) [:maxtasks]))
 
-    # Add this task onto the user's list of unfinished tasks
-    
-    users[username]["issuedTasks"] += ((customername, pID, taskID),)
+    #unf = projects[pID]["unfinishedTasks"]
+    #taskID = unf.pop(0)
+    #unf.append(taskID)
 
-    return (True, taskID, "succ")
+    # Find the associated blob with each task ID
+    tasks = []
+    for t in taskIDs:
+        (succ, b, m) = getBlob(pID, t)
+        if not succ:
+            return (False, "Task collection error", 0)
+
+        tasks.append(b)
+
+    users[username]["issuedTasks"][pID] = users[username]["issuedTasks"][pID] + taskIDs
+
+    return (True, tasks, taskIDs)
 
 # Stores the list of blobs in the database, along with the metadata
-def taskDone(customername, pID, taskID, blobsandmetas, username):
+def sendTasks(pID, taskID, results, metadatas, username, status):
     try:
-        b = projects[customername][pID]["blobs"][taskID]
+        b = projects[pID]["blobs"][taskID]
     except Exception:
-        return (False, "msg2")
+        return (False, "Task does not exist")
     
-    # Test that this phone completed a task it was supposed to
-    if not (customername, pID, taskID) in users[username]["issuedTasks"]:
-        #return (False, str(users[username]["issuedTasks"]) + "|" + customername + "|" + pID + "|" + str(taskID))
-        return (False, "msg1")
+    # Test that this phone completed tasks it was supposed to
 
-    # Take the old task off the task list
-    for i, (time, bID) in enumerate(projects[customername][pID]["unfinishedTasks"]):
-        if bID == taskID:
-            del projects[customername][pID]["unfinishedTasks"][i]
-            break
+    if not taskID in users[username]["issuedTasks"][pID]:
+        return (False, "Task was not scheduled. Scheduled tasks: " + str(users[username]["issuedTasks"]))
 
-    # Create all the new blobs
-    for (blob, meta) in blobsandmetas:
-        createNewBlob(customername, pID, blob, meta)
+    # If status is ok, count the task as completed
+    if status == "ok":
+        # Take the old task off the task list
+        for i, bID in enumerate(projects[pID]["unfinishedTasks"]):
+            if bID == taskID:
+                del projects[pID]["unfinishedTasks"][i]
+                break
 
-    return (True, str(projects[customername][pID]["unfinishedTasks"]))
+        # Create all the new blobs
+        for (blob, meta) in zip(results, metadatas):
+            createNewBlob(pID, blob, meta)
+
+    # If status is error, we can give the task back later
+    elif status == "error":
+        users[username]["issuedTasks"][pID].remove(taskID)
+
+    # If status is refused, we will eventually give the task to someone else
+    elif status == "refused":
+        pass
+    else:
+        return (False, "Invalid error code")
+        
+    return (True, "")

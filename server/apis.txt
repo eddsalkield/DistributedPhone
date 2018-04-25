@@ -1,0 +1,80 @@
+Generic responses
+Success:
+{
+	"success": True,
+	"error": "",	
+}
+
+Failure:
+{
+	"success": False,
+	"error": ""
+}
+
+
+Function Interfaces
+
+
+ping
+Description: returns success to show server is alive
+Returns:
+{
+	"success": True,
+	"error": "",	
+}
+
+reboot
+Description: reboots the server if not in production mode
+Returns:
+* Generic success if not in PRODUCTION mode
+* Generic failure if in PRODUCTION mode
+
+getBlob
+Description: returns a blob from project pname with blob ID name
+Expects:
+{
+	"token": "abcde",	// The session token of the worker
+	"pname": "project1",	// The unique project ID/name
+	"name": "1"		// The name of the blob to get
+}
+
+Returns (if successful):
+{
+	"success": True,
+	"error": "",
+	"blob": blobdata,
+	"metadata": metadata
+}
+
+getTasks
+Description: returns a list of tasks that have not yet been issued to this client, of length up to maxtasks
+Expects:
+{
+	"token": "abcde",
+	"pname": "project1",
+	"maxtasks": 5		// The maximum number of new tasks the user wants
+}
+
+Returns (if successful):
+{
+	"success": True,
+	"error": "",
+	"taskIDs": [1, 2, ...],
+	"tasks": [blob1, blob2, ...],
+	"metadatas": [meta1, meta2, ...]
+}
+
+sendTasks
+Description: stores the results of a task on the server
+Expects:
+{
+	"token": "abcde",
+	"pname": "project1",
+	"status": "ok"/"error"/"refused"
+	"taskID": 1
+	"results": [blob1, blob2, ...],
+	"metadatas": [meta1, meta2, ...]
+}
+
+Returns (if successful):
+Generic success

@@ -3,6 +3,17 @@ import requests, cbor
 
 SERVER_IP = "35.178.90.246:8081"
 
+def reboot():
+    r = requests.post("http://" + SERVER_IP + "/reboot")
+
+    if r.status_code != 200:
+        return (False, r.text)
+
+    data = cbor.loads(r.content)
+    return (data["success"] and data["error"] == "", data)
+
+
+
 # Test ping
 def testPing():
     r = requests.post("http://" + SERVER_IP + "/ping")
@@ -116,11 +127,11 @@ def getBlobMetadata(token, pname, blobIDs):
     data = cbor.loads(r.content)
     return (data["success"] and data["error"] == "", data)
     
-def getBlobs(token, pname, blobIDs):
-    r = requests.post("http://" + SERVER_IP + "/getBlobs", data = cbor.dumps(
+def getBlob(token, pname, name):
+    r = requests.post("http://" + SERVER_IP + "/getBlob", data = cbor.dumps(
         {   "token": token,
             "pname": pname,
-            "blobIDs": blobIDs,
+            "name": name,
         }))
 
     if r.status_code != 200:
@@ -129,11 +140,11 @@ def getBlobs(token, pname, blobIDs):
     data = cbor.loads(r.content)
     return (data["success"] and data["error"] == "", data)
     
-def getNewTask(token, customername, pname):
-    r = requests.post("http://" + SERVER_IP + "/getNewTask", data = cbor.dumps(
+def getTasks(token, pname, maxtasks):
+    r = requests.post("http://" + SERVER_IP + "/getTasks", data = cbor.dumps(
         {   "token": token,
             "pname": pname,
-            "customername": customername,
+            "maxtasks": maxtasks,
         }))
 
     if r.status_code != 200:
@@ -142,13 +153,14 @@ def getNewTask(token, customername, pname):
     data = cbor.loads(r.content)
     return (data["success"] and data["error"] == "", data)
 
-def taskDone(token, customername, pname, taskID, blobsandmetas):
-    r = requests.post("http://" + SERVER_IP + "/taskDone", data = cbor.dumps(
+def sendTasks(token, pname, taskID, results, metadatas, status):
+    r = requests.post("http://" + SERVER_IP + "/sendTasks", data = cbor.dumps(
         {   "token": token,
             "pname": pname,
-            "customername": customername,
             "taskID": taskID,
-            "blobsandmetas": blobsandmetas
+            "results": results,
+            "metadatas": metadatas,
+            "status": status
         }))
 
     if r.status_code != 200:

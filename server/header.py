@@ -1,3 +1,3 @@
 TOKENSIZE = 20
 SESSION_EXPIRE = 60*60    # In seconds
-
+PRODUCTION = False
