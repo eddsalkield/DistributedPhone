@@ -2,21 +2,21 @@ import {Data as ErrorData} from "@/err";
 
 export type ErrorData = ErrorData;
 
+export interface BlobRef {
+    id: string;
+    size: number;
+}
+
 export interface Task {
     id: string;
     project: string;
-    program: string;
+    program: BlobRef;
     in_control: ArrayBuffer;
-    in_blobs: string[];
-}
-
-export interface BlobInfo {
-    size: number;
+    in_blobs: BlobRef[];
 }
 
 export interface TaskSet {
     tasks: Task[];
-    blob_info: Map<string, BlobInfo>;
 }
 
 export interface TaskResultBase {

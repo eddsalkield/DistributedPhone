@@ -203,37 +203,18 @@ export default class Runner {
         this.st_sending.set(this.tasks_sending.size);
     }
 
-    private taskFromAPI(info: api.Task, blobs: Map<string, Ref>): Task {
-        function getBlob(id: string): Ref {
-            const ref = blobs.get(id);
-            if(ref === undefined) {
-                throw new err.State("blob_info missing for blob", {
-                    task_id: info.id,
-                    blob_id: "remote/" + id,
-                });
-            }
-            return ref;
-        }
-
-        return new Task(
-            info.id, info.project, getBlob(info.program),
-            info.in_control, info.in_blobs.map(getBlob),
-        );
-    }
-
     public addTaskSet(ts: api.TaskSet) {
-        const blobs = new Map<string, Ref>();
-        for(const [k, v] of ts.blob_info.entries()) {
-            blobs.set(k, this.repo.fromAPI(k, v));
-        }
-
+        const getBlob = (b: api.BlobRef) => this.repo.fromAPI(b);
         const added_tasks: Task[] = [];
         try {
             for(const info of ts.tasks) {
-                const task = this.taskFromAPI(info, blobs);
-                if(this.tasks.get(task.id)) {
-                    throw new err.State("Task already exists", {task_id: task.id});
+                if(this.tasks.get(info.id)) {
+                    throw new err.State("Task already exists", {task_id: info.id});
                 }
+                const task = new Task(
+                    info.id, info.project, getBlob(info.program),
+                    info.in_control, info.in_blobs.map(getBlob),
+                );
                 added_tasks.push(task);
                 this.tasks.set(task.id, task);
             }

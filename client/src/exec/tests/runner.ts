@@ -30,8 +30,12 @@ function testRun(): Promise<void> {
 
     const want_results = new Map<string, any>();
 
+    const blob_echo = the_api.blob("prog-echo");
+    const blob_abort = the_api.blob("prog-abort");
+    const blob_hw = the_api.blob("hw");
+
     the_api.tasks.enqueue({
-        id: "echo", project: "", program: "prog-echo",
+        id: "echo", project: "", program: blob_echo,
         in_control: tb.hello_world, in_blobs: [],
     });
     want_results.set("echo", {
@@ -40,8 +44,8 @@ function testRun(): Promise<void> {
     });
 
     the_api.tasks.enqueue({
-        id: "echo-blobs", project: "", program: "prog-echo",
-        in_control: arrBuf([42]), in_blobs: ["hw", "hw"],
+        id: "echo-blobs", project: "", program: blob_echo,
+        in_control: arrBuf([42]), in_blobs: [blob_hw, blob_hw],
     });
     want_results.set("echo-blobs", {
         id: "echo-blobs", status: "ok",
@@ -49,8 +53,8 @@ function testRun(): Promise<void> {
     });
 
     the_api.tasks.enqueue({
-        id: "abort", project: "", program: "prog-abort",
-        in_control: arrBuf([42]), in_blobs: ["hw", "hw","prog-echo"],
+        id: "abort", project: "", program: blob_abort,
+        in_control: arrBuf([42]), in_blobs: [blob_hw, blob_hw, blob_echo],
     });
     want_results.set("abort", {
         id: "abort", status: "error",

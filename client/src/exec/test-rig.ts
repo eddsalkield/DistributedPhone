@@ -92,14 +92,14 @@ class PrintTSDB implements stat.TSDB {
     }
 }
 
-function fibtask(i: number, n: number): api.Task {
+function fibtask(prog: api.BlobRef, i: number, n: number): api.Task {
     let ns = "" + n, is = "" + i;
     if(ns.length === 1) ns = "0" + ns;
     if(is.length === 1) is = "0" + is;
     return {
         id: `fib${ns}.${is}`,
         project: "test",
-        program: "prog-fib",
+        program: prog,
         in_control: arrBuf([n & 255, n >> 8, 0, 0, 0, 0, 0, 0]),
         in_blobs: [],
     };
@@ -211,6 +211,8 @@ export function main() {
         "b24gYGJrdHNbYmt0XSA9PSBoJyBmYWlsZWQgYXQgbWFsbG9jLmM6MTQ0"
     ));
 
+    const prog = the_api.blob("prog-fib");
+
     let i = -1;
     but_more.onclick = () => {
         let cnt = Number(in_cnt.value);
@@ -225,7 +227,7 @@ export function main() {
             }
 
             for(const n of shuffle(range(n1, n2 + 1))) {
-                the_api.tasks.enqueue(fibtask(i, n));
+                the_api.tasks.enqueue(fibtask(prog, i, n));
             }
             the_api.report();
         }

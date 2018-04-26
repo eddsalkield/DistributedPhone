@@ -48,6 +48,10 @@ export default class MockAPI implements api.WorkProvider {
         return this.task_cnt_ok.value! + this.task_cnt_error.value! + this.task_cnt_refused.value!;
     }
 
+    public blob(id: string): api.BlobRef {
+        return {id: id, size: this.blobs.get(id)!.byteLength};
+    }
+
     public report() {
         const cond = this.conditions;
         let i = 0, j = 0;
@@ -83,31 +87,21 @@ export default class MockAPI implements api.WorkProvider {
             return new Promise((resolve, reject) => {
                 self.setTimeout(() => resolve({
                     tasks: [],
-                    blob_info: new Map(),
                 }), 500 * Math.random());
             });
         }
 
         const r = Math.floor(200 * Math.random());
         const ts: api.Task[] = [];
-        const bi = new Map<string, api.BlobInfo>();
         while(ts.length < r) {
             const t = this.tasks.dequeue();
             if(!t) break;
-            for(const id of [t.program].concat(t.in_blobs)) {
-                if(bi.get(id) !== undefined) continue;
-                const blob = this.blobs.get(id);
-                bi.set(id, {
-                    size: blob !== undefined ? blob.byteLength : 42,
-                });
-            }
             ts.push(t);
         }
         this.req_cnt_results.inc();
         this.report();
         return Promise.resolve({
             tasks: ts,
-            blob_info: bi,
         });
     }
 

@@ -279,10 +279,10 @@ export class BlobRepo {
     }
 
     /* Load a blob from the API. */
-    public fromAPI(id: string, info: api.BlobInfo): Ref {
+    public fromAPI(b: api.BlobRef): Ref {
         return this.register({
-            id: "remote/" + id,
-            size: info.size,
+            id: "remote/" + b.id,
+            size: b.size,
         });
     }
 
