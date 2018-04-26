@@ -17,9 +17,6 @@ interface:
 Imports
 ---
     env: {
-      memory
-        The program's linear memory.
-
       void pptw1_abort(char*)
         Aborts program execution. The argument is NULL or a pointer to the
         error message.
@@ -31,6 +28,9 @@ Imports
 
 Exports
 ---
+    memory
+      The program's linear memory.
+
     void pptw1_init(void)
       Called when the program is started.
 
@@ -38,7 +38,8 @@ Exports
       Called when the program is stopped.
 
     char *pptw1_malloc(size_t)
-      Allocates memory of the given size and returns pointer.
+      Allocates memory of the given size and returns pointer (offset into
+      `memory`).
 
     pptw1_response *pptw1_run(pptw1_request*)
       Runs a task. The request's blobs, as well as the request object itself,
@@ -58,7 +59,6 @@ Types
     };
 
     struct pptw1_response {
-      struct pptw1_blobref control;
       size_t n_blobs;
       struct pptw1_blobref blobs[n_blobs];
     };

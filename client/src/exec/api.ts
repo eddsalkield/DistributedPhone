@@ -25,7 +25,6 @@ export interface TaskResultBase {
 
 export interface TaskResultOK extends TaskResultBase {
     status: "ok";
-    control: ArrayBuffer;
     data: ArrayBuffer[];
 }
 

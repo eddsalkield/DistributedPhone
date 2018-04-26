@@ -36,7 +36,7 @@ function testRun(): Promise<void> {
     });
     want_results.set("echo", {
         id: "echo", status: "ok",
-        control: tb.hello_world, data: [],
+        data: [],
     });
 
     the_api.tasks.enqueue({
@@ -45,7 +45,7 @@ function testRun(): Promise<void> {
     });
     want_results.set("echo-blobs", {
         id: "echo-blobs", status: "ok",
-        control: arrBuf([42]), data: [tb.hello_world, tb.hello_world],
+        data: [tb.hello_world, tb.hello_world],
     });
 
     the_api.tasks.enqueue({

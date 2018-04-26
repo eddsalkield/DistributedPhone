@@ -46,7 +46,6 @@ r.readBlob(resolve(process.argv[3])).then((control) => {
         data: process.argv.slice(4).map(resolve),
     });
 }).then((out) => {
-    fs.writeFileSync("output-control", new Buffer(out.control));
     for(let i = 0; i < out.data.length; i += 1) {
         fs.writeFileSync("output-blob-" + i, new Buffer(out.data[i]));
     }

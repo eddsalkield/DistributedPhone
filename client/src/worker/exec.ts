@@ -18,11 +18,6 @@ export default class Executor {
         in_program: WebAssembly.Module,
         in_control: ArrayBuffer, in_data: workapi.Ref[]
     ): Promise<workapi.OutResult> {
-        const mem = new WebAssembly.Memory({
-            initial: 2,
-            maximum: 1024,
-        });
-
         const getString = (view: Uint8Array): string => {
             // if(view.some((c) => ((c < 32 && c != 10) || c == 127))) return " with invalid string.";
             if(view.every((c) => (c < 128))) {
@@ -33,7 +28,6 @@ export default class Executor {
         };
 
         const import_env: Env = {
-            memory: mem,
             pptw1_print: (ptr: any, size: any) => {
                 if(typeof ptr !== "number" || ptr !== (ptr | 0)) {
                     throw new Error("Invalid call to print()");
@@ -85,6 +79,8 @@ export default class Executor {
         };
         const inst = new WebAssembly.Instance(in_program, import_object);
 
+        const mem = inst.exports.memory;
+
         inst.exports.pptw1_init();
 
         const addr_in = inst.exports.pptw1_malloc((3 + 2*in_data.length) * 4);
@@ -116,23 +112,16 @@ export default class Executor {
             this.onStarted();
             let res_addr = inst.exports.pptw1_run(addr_in);
 
-            let outc_addr: number;
-            let outc_size: number;
             let outc_blobs: number;
             {
-                const view = new DataView(mem.buffer, res_addr, 3 * 4);
-                res_addr += 3 * 4;
-                outc_addr = view.getUint32(0, true);
-                outc_size = view.getUint32(4, true);
-                outc_blobs = view.getUint32(8, true);
+                const view = new DataView(mem.buffer, res_addr, 4);
+                res_addr += 4;
+                outc_blobs = view.getUint32(0, true);
             }
 
             const res: workapi.OutResult = {
-                control: new ArrayBuffer(outc_size),
                 data: [],
             };
-
-            new Uint8Array(res.control).set(new Uint8Array(mem.buffer, outc_addr, outc_size));
 
             for(let i = 0; i < outc_blobs; i += 1) {
                 const view = new DataView(mem.buffer, res_addr, 2 * 4);

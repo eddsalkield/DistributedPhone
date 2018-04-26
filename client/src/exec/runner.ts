@@ -29,7 +29,6 @@ class Task {
     public in_blobs: Ref[];
 
     public out_status?: TaskStatus;
-    public out_control?: ArrayBuffer;
     public out_data?: Ref[];
     public out_error?: api.ErrorData;
 
@@ -53,15 +52,13 @@ class Task {
             in_control: this.in_control, in_blobs: this.in_blobs,
         };
         if(this.out_status !== undefined) d.out_status = TaskStatus[this.out_status];
-        if(this.out_control !== undefined) d.out_control = this.out_control;
         if(this.out_data !== undefined) d.out_data = this.out_data;
         if(this.out_error !== undefined) d.out_error = this.out_error;
         return d;
     }
 
-    public setDone(out_control: ArrayBuffer, out_data: Ref[]): void {
+    public setDone(out_data: Ref[]): void {
         this.out_status = TaskStatus.OK;
-        this.out_control = out_control;
         this.out_data = out_data;
     }
 
@@ -294,7 +291,6 @@ export default class Runner {
                 const res: api.TaskResultOK = {
                     id: t.id,
                     status: "ok",
-                    control: t.out_control!,
                     data: data,
                 };
                 return res;
@@ -330,7 +326,7 @@ export default class Runner {
 
             space_left -= 32;
             if(t.out_status === TaskStatus.OK) {
-                space_left -= t.out_control!.byteLength + 4 * t.out_data!.length;
+                space_left -= 4 * t.out_data!.length;
                 for(const blob of t.out_data!) space_left -= blob.size;
             } else if(t.out_status === TaskStatus.ERROR) {
                 space_left -= 1024;
@@ -419,7 +415,7 @@ export default class Runner {
         this.taskFinish(t);
     }
 
-    private taskDone(t: Task, control: ArrayBuffer, data: ArrayBuffer[]) {
+    private taskDone(t: Task, data: ArrayBuffer[]) {
         const refs: Ref[] = [];
         const promises = data.map((d) => {
             const [ref, pr] = this.repo.create(d);
@@ -428,7 +424,7 @@ export default class Runner {
         });
 
         Promise.all(promises).then(() => {
-            t.setDone(control, refs);
+            t.setDone(refs);
             this.taskFinish(t);
         }, (e) => {
             for(const ref of refs) this.repo.unpin(ref);
@@ -483,7 +479,7 @@ export default class Runner {
                     delete t.tryCancel;
                     release!();
                     this.tasks_running.delete(t);
-                    this.taskDone(t, data.control, data.data);
+                    this.taskDone(t, data.data);
                 },
                 onError: (e: Error) => {
                     delete t.tryCancel;
@@ -566,10 +562,10 @@ export default class Runner {
         if(d.out_status === undefined) {
             // pass
         } else if(d.out_status === "OK") {
-            if(d.out_control === undefined || d.out_data === undefined) {
+            if(d.out_data === undefined) {
                 throw new err.State("Task finished but no data stored");
             }
-            t.setDone(d.out_control, d.out_data.map((ref) => {
+            t.setDone(d.out_data.map((ref) => {
                 const p = this.repo.pin(ref);
                 pinned.push(p);
                 return p;

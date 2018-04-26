@@ -13,7 +13,6 @@ export interface TaskData {
     in_blobs: Ref[];
 
     out_status?: string;
-    out_control?: ArrayBuffer;
     out_data?: Ref[];
     out_error?: api.ErrorData;
 }
@@ -69,7 +68,6 @@ function readTaskData(r: cbor.Reader): TaskData {
         else if(key === "in_control") d.in_control = copyBuf(r.bytes());
         else if(key === "in_blobs") d.in_blobs = cbut.readArray(r, readRef);
         else if(key === "out_status") d.out_status = r.string();
-        else if(key === "out_control") d.out_control = copyBuf(r.bytes());
         else if(key === "out_data") d.out_data = cbut.readArray(r, readRef);
         else if(key === "out_error") d.out_error = cbut.readError(r);
         else r.skip();
@@ -101,10 +99,6 @@ function writeTaskData(w: cbor.Writer, d: TaskData): void {
     if(d.out_status !== undefined) {
         w.string("out_status");
         w.string(d.out_status);
-    }
-    if(d.out_control !== undefined) {
-        w.string("out_control");
-        w.bytes(new Uint8Array(d.out_control));
     }
     if(d.out_data !== undefined) {
         w.string("out_data");

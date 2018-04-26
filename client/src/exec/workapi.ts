@@ -20,7 +20,6 @@ export interface In {
 }
 
 export interface OutResult {
-    control: ArrayBuffer;
     data: ArrayBuffer[];
 }
 
