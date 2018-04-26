@@ -26,7 +26,7 @@ def testPing():
 
 
 def registerCustomer(username, password):
-    r = requests.post("http://" + SERVER_IP + "/registerCBOR", data = cbor.dumps(
+    r = requests.post("http://" + SERVER_IP + "/register", data = cbor.dumps(
         {   "username": username,
             "password": password,
             "accesslevel": "customer"
@@ -39,7 +39,7 @@ def registerCustomer(username, password):
     return (data["success"] and data["error"] == "", data)
 
 def registerWorker(username, password):
-    r = requests.post("http://" + SERVER_IP + "/registerCBOR", data = cbor.dumps(
+    r = requests.post("http://" + SERVER_IP + "/register", data = cbor.dumps(
         {   "username": username,
             "password": password,
             "accesslevel": "worker"
@@ -52,7 +52,7 @@ def registerWorker(username, password):
     return (data["success"] and data["error"] == "", data)
 
 def login(username, password, accesslevel):
-    r = requests.post("http://" + SERVER_IP + "/loginCBOR", data = cbor.dumps(
+    r = requests.post("http://" + SERVER_IP + "/login", data = cbor.dumps(
         {   "username": username,
             "password": password,
             "accesslevel": accesslevel
@@ -171,6 +171,27 @@ def deleteBlob(token, pname, blobID):
             "pname": pname,
             "blobID": blobID
         }))
+
+    if r.status_code != 200:
+        return (False, r.text)
+
+    data = cbor.loads(r.content)
+    return (data["success"] and data["error"] == "", data)
+
+def getGraphs(pname):
+    r = requests.post("http://" + SERVER_IP + "/getGraphs", data = cbor.dumps(
+        {   "pname": pname,
+        }))
+
+    if r.status_code != 200:
+        return (False, r.text)
+
+    data = cbor.loads(r.content)
+    return (data["success"] and data["error"] == "", data)
+
+
+def getProjectsList():
+    r = requests.post("http://" + SERVER_IP + "/getProjectsList")
 
     if r.status_code != 200:
         return (False, r.text)

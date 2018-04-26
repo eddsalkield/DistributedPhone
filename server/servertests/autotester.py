@@ -81,3 +81,6 @@ tasksreturned = {
 }
 
 data = test(sendTasks(wtok, tasksreturned), "testSendTasks")
+
+test(getGraphs("Project"), "testGetGraphs")
+test(getProjectsList(), "testGetProjectsList")

@@ -10,6 +10,11 @@ import string
 
 from header import *
 
+def changeGraph(pID, graphname, diff):
+    graphs = projects[pID]["graphing"]
+    lastActive = graphs[graphname][-1:][0][1]
+    graphs[graphname].append(tuple((getTime(), lastActive+diff)))
+
 def getTime():
     return mktime(datetime.now().timetuple())
 
@@ -52,8 +57,19 @@ def login(username, password, accesslevel):
             s["username"] = username
             s["starttime"] = t
             s["accesslevel"] = accesslevel
+
+            # Graphing
+            for pname in users[username]["issuedTasks"]:
+                changeGraph(pname, "activeWorkers", 1)
+
             return (True, token)
     return (False, 0)
+
+def logoutGraphUpdate(username):
+            # Graphing
+            for pname in users[username]["issuedTasks"]:
+                # Remove active user for each project
+                changeGraph(pname, "activeWorkers", -1)
 
 
 ## Allows extraction of the user from currently active sessions. This should be cached in front of the database
@@ -69,17 +85,17 @@ def querySession(token, query):
 # Deletes the session
 def deleteSession(data, kind):
     if kind == "token":
-        if token not in sessions:
+        if data not in sessions:
             return False
         else:
-            del sessions[token]
+            del sessions[data]
             return True
     elif kind == "username":
         result = False
-        for i, (name, sesh) in enumerate(sessions.items()):
+        for i, (token, sesh) in enumerate(sessions.items()):
             if sesh["username"] == data:
                 result = True
-                del sessions[i]
+                del sessions[token]
                 break
 
         return result
@@ -96,8 +112,13 @@ def createNewProject(pname, pdescription):
         return False
     # No other project by this user has the given name
     
-    projects[pname] = {"blobs": {}, "blobids": 0,  "unfinishedTasks": [], "description": pdescription}
-
+    projects[pname] = {"blobs": {}, "blobids": 0,  "unfinishedTasks": [], "description": pdescription, "graphing":{
+        "activeWorkers":    [tuple((getTime(), 0))],
+        "totalWorkers":     [tuple((getTime(), 0))],
+        "tasksCompleted":   [tuple((getTime(), 0))],
+        "tasksFailed":      [tuple((getTime(), 0))],
+        "tasksRefused":     [tuple((getTime(), 0))]
+    }}
     return True
 
 # Creates a new blob, and stores it along with its metadata
@@ -126,6 +147,8 @@ def blobToTask(pID, blobID):
 
     # The blob exists within the project
     projects[pID]["blobs"][blobID]["task"] = True
+    
+    # Test whether the blob actually is a task
 
     # Push a copy onto the queue of "to-do" tasks
     projects[pID]["unfinishedTasks"].append(blobID)
@@ -180,8 +203,14 @@ def getTasks(pID, username, maxtasks):
     try:
         users[username]["issuedTasks"][pID]
     except Exception:
+        # This is a first-time active user
+        changeGraph(pID, "totalWorkers", 1)
         users[username]["issuedTasks"][pID] = []
         
+
+    if users[username]["issuedTasks"][pID] == []:
+        # This is a first time user on this task
+        changeGraph(pID, "activeWorkers", 1)
 
     # Find new tasks to be done
     taskIDs = list(map(int, np.setdiff1d(projects[pID]["unfinishedTasks"], users[username]["issuedTasks"][pID]) [:maxtasks]))
@@ -226,15 +255,26 @@ def sendTasks(pID, taskID, results, metadatas, username, status):
         # Create all the new blobs
         for (blob, meta) in zip(results, metadatas):
             createNewBlob(pID, blob, meta)
+        
+        # Update graphing info
+        changeGraph(pID, "tasksCompleted", 1)
 
     # If status is error, we can give the task back later
     elif status == "error":
         users[username]["issuedTasks"][pID].remove(taskID)
+        changeGraph(pID, "tasksFailed", 1)
 
     # If status is refused, we will eventually give the task to someone else
     elif status == "refused":
-        pass
+        changeGraph(pID, "tasksRefused", 1)
     else:
         return (False, "Invalid error code")
         
     return (True, "")
+
+## GRAPHING METHODS
+def getGraphs(pname):
+    if not pname in projects:
+        return (False, "Invalid project name")
+
+    return (True, projects[pname]["graphing"])

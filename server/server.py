@@ -44,31 +44,7 @@ class RootServer:
 
 
     @cherrypy.expose
-    def register(self, username, password):
-        # Sanity check inputs
-        try:
-            username = str("username")
-            password = str("password")
-        except Exception:
-            return errormsg("Invalid inputs")
-
-        try:
-            accesslevel = str(body["accesslevel"])
-        except Exception:
-            accesslevel = "worker"
-
-        if accesslevel not in ["customer", "worker"]:
-            accesslevel = "worker"
-
-        # Registers a new user
-        if not database.register(username, password, accesslevel):
-            return errormsg("Registration failed.")
-
-        return success()
-
-
-    @cherrypy.expose
-    def registerCBOR(self):
+    def register(self):
         # Get request body
         try:
             body = cbor.loads(cherrypy.request.body.read())
@@ -97,36 +73,9 @@ class RootServer:
         return success()
 
 
-    @cherrypy.expose
-    def login(self, username, password):
-
-        # Sanity check inputs
-        try:
-            username = str("username")
-            password = str("password")
-        except Exception:
-            return errormsg("Invalid inputs")
-
-        try:
-            accesslevel = str(body["accesslevel"])
-        except Exception:
-            accesslevel = "worker"
-
-        # Reset the current session
-        database.deleteSession(username, "username")
-        if accesslevel not in ["customer", "worker"]:
-            accesslevel = "worker"
-
-        (succ, token) = database.login(username, password, accesslevel)
-        if not succ:
-            return errormsg("Login failed. Invalid username or password.")
-
-        return cbor.dumps({'success': True, 'error': '', 'token': token})
-
-
     # username, password, accesslevel
     @cherrypy.expose
-    def loginCBOR(self):
+    def login(self):
         # Get request body
         try:
             body = cbor.loads(cherrypy.request.body.read())
@@ -174,7 +123,10 @@ class RootServer:
         # Check that the user has an active session
         if not checkSessionActive(token):
             return errormsg("Session expired or invalid token in logout. Please try again.")
+
+        username = database.querySession(token, "username")[1]
         
+        database.logoutGraphUpdate(username)
         database.deleteSession(token, "token")
 
         return success()
@@ -433,6 +385,35 @@ class RootServer:
         if not PRODUCTION:
             cherrypy.engine.restart()
             return success()
+
+    @cherrypy.expose
+    def getProjectsList(self):
+        projects = {}
+        for pname, project in database.projects.items():
+            projects[pname] = {"description": project["description"]}
+        return(cbor.dumps({'success': True, 'error': '', "projects": projects}))
+
+    #pname
+    @cherrypy.expose
+    def getGraphs(self):
+        # Get request body
+        try:
+            body = cbor.loads(cherrypy.request.body.read())
+        except Exception:
+            return errormsg("Incorrectly encoded body")
+
+        # Sanity check inputs, check access level
+        try:
+            pname = str(body["pname"])
+        except Exception:
+            return errormsg("Invalid inputs")
+
+        (succ, graphs) = database.getGraphs(pname)
+        if not succ:
+            return errormsg("Database error: " + graphs)
+
+        return(cbor.dumps({'success': True, 'error': '', "graphs": graphs}))
+        
 
 if __name__ == '__main__':
     cherrypy.config.update({'server.socket_host': '0.0.0.0',
