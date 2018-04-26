@@ -26,7 +26,7 @@ def testPing():
 
 
 def registerCustomer(username, password):
-    r = requests.post("http://" + SERVER_IP + "/register", data = cbor.dumps(
+    r = requests.post("http://" + SERVER_IP + "/registerCBOR", data = cbor.dumps(
         {   "username": username,
             "password": password,
             "accesslevel": "customer"
@@ -39,7 +39,7 @@ def registerCustomer(username, password):
     return (data["success"] and data["error"] == "", data)
 
 def registerWorker(username, password):
-    r = requests.post("http://" + SERVER_IP + "/register", data = cbor.dumps(
+    r = requests.post("http://" + SERVER_IP + "/registerCBOR", data = cbor.dumps(
         {   "username": username,
             "password": password,
             "accesslevel": "worker"
@@ -52,7 +52,7 @@ def registerWorker(username, password):
     return (data["success"] and data["error"] == "", data)
 
 def login(username, password, accesslevel):
-    r = requests.post("http://" + SERVER_IP + "/login", data = cbor.dumps(
+    r = requests.post("http://" + SERVER_IP + "/loginCBOR", data = cbor.dumps(
         {   "username": username,
             "password": password,
             "accesslevel": accesslevel

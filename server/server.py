@@ -42,24 +42,23 @@ class RootServer:
     def ping(self):
         return success()
 
-    @cherrypy.expose
-    def register(self):
-        # Get request body
-        try:
-            body = cbor.loads(cherrypy.request.body.read())
-        except Exception:
-            return errormsg("Incorrectly encoded body")
 
+    @cherrypy.expose
+    def register(self, username, password):
         # Sanity check inputs
         try:
-            username = str(body["username"])
-            accesslevel = str(body["accesslevel"])
-            password = str(body["password"])
+            username = str("username")
+            password = str("password")
         except Exception:
             return errormsg("Invalid inputs")
 
+        try:
+            accesslevel = str(body["accesslevel"])
+        except Exception:
+            accesslevel = "worker"
+
         if accesslevel not in ["customer", "worker"]:
-            return errormsg("Invalid accesslevel. Should be 'customer' or 'worker'.")
+            accesslevel = "worker"
 
         # Registers a new user
         if not database.register(username, password, accesslevel):
@@ -67,9 +66,9 @@ class RootServer:
 
         return success()
 
-    # username, password, accesslevel
+
     @cherrypy.expose
-    def login(self):
+    def registerCBOR(self):
         # Get request body
         try:
             body = cbor.loads(cherrypy.request.body.read())
@@ -79,15 +78,77 @@ class RootServer:
         # Sanity check inputs
         try:
             username = str(body["username"])
-            accesslevel = str(body["accesslevel"])
             password = str(body["password"])
         except Exception:
             return errormsg("Invalid inputs")
 
+        try:
+            accesslevel = str(body["accesslevel"])
+        except Exception:
+            accesslevel = "worker"
+
+        if accesslevel not in ["customer", "worker"]:
+            accesslevel = "worker"
+
+        # Registers a new user
+        if not database.register(username, password, accesslevel):
+            return errormsg("Registration failed.")
+
+        return success()
+
+
+    @cherrypy.expose
+    def login(self, username, password):
+
+        # Sanity check inputs
+        try:
+            username = str("username")
+            password = str("password")
+        except Exception:
+            return errormsg("Invalid inputs")
+
+        try:
+            accesslevel = str(body["accesslevel"])
+        except Exception:
+            accesslevel = "worker"
+
         # Reset the current session
         database.deleteSession(username, "username")
         if accesslevel not in ["customer", "worker"]:
-            return errormsg("Invalid accesslevel. Should be 'customer' or 'worker'.")
+            accesslevel = "worker"
+
+        (succ, token) = database.login(username, password, accesslevel)
+        if not succ:
+            return errormsg("Login failed. Invalid username or password.")
+
+        return cbor.dumps({'success': True, 'error': '', 'token': token})
+
+
+    # username, password, accesslevel
+    @cherrypy.expose
+    def loginCBOR(self):
+        # Get request body
+        try:
+            body = cbor.loads(cherrypy.request.body.read())
+        except Exception:
+            return errormsg("Incorrectly encoded body")
+
+        # Sanity check inputs
+        try:
+            username = str(body["username"])
+            password = str(body["password"])
+        except Exception:
+            return errormsg("Invalid inputs")
+
+        try:
+            accesslevel = str(body["accesslevel"])
+        except Exception:
+            accesslevel = "worker"
+
+        # Reset the current session
+        database.deleteSession(username, "username")
+        if accesslevel not in ["customer", "worker"]:
+            accesslevel = "worker"
 
         (succ, token) = database.login(username, password, accesslevel)
         if not succ:

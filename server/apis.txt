@@ -78,3 +78,27 @@ Expects:
 
 Returns (if successful):
 Generic success
+
+register
+Description: Registers a new user
+Expects:
+{
+	"username": "Annazita",
+	"accesslevel": "worker"/"customer",
+	"password": "hunter2"
+}
+
+Returns:
+
+login
+{
+	"username": "Annazita",
+	"accesslevel": "worker"/"customer",
+	"password": "hunter2"
+}
+
+
+logout
+{
+	"token": token
+}
