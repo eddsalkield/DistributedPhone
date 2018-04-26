@@ -402,11 +402,7 @@ class RootServer:
         try:
             token = str(body["token"])
             username = database.querySession(token, "username") [1]
-            pname = str(body["pname"])
-            taskID = int(body["taskID"])
-            results = body["results"]
-            metadatas = body["metadatas"]
-            status = str(body["status"])
+            tasks = body[tasks]
         except Exception:
             return errormsg("Invalid inputs")
         
@@ -416,11 +412,22 @@ class RootServer:
         if not checkSessionActive(token):
             return errormsg("Session expired or invalid token in logout. Please try again.")
 
-        (succ, msg) = database.sendTasks(pname, taskID, results, metadatas, username, status)
-        if not succ:
-            return errormsg("Database error: " + msg)
+        # Construct metadatas
+        meta = {
+            "result": True,
+            "taskID": taskID,
+            "control": b'',
+            "blobs": [],
+            "blobs_n": 0
+        }
 
-        return(cbor.dumps({'success': True, 'error': ''}))
+        for pname, project in tasks.items():
+            for taskID, task in project.items():
+                results = task["results"]
+                (succ, msg) = database.sendTasks(pname, taskID, results, [meta]*len(results), username, task["status"])
+                if not succ:
+                    return errormsg("Database error: " + msg)
+
         return success()
 
     @cherrypy.expose

@@ -58,8 +58,26 @@ data = test(getTasks(wtok, "Project", 2), "testGetTasks")
 data = test(getTasks(wtok, "Project", 2), "testGetTasks")
 data = test(getTasks(wtok, "Project", 2), "testGetTasks")
 
-data = test(sendTasks(wtok, "Project", b1, [], [], "ok"), "testSendTasks")
-data = test(sendTasks(wtok, "Project", b2, [], [], "refused"), "testSendTasks")
-data = test(sendTasks(wtok, "Project", b3, [], [], "error"), "testSendTasks")
-data = test(getTasks(wtok, "Project", 2), "testGetTasks")
-data = test(getTasks(wtok, "Project", 2), "testGetTasks")
+tasksreturned = {
+    "Project": {
+        str(b1): {
+            "results": ["resblob1", "resblob2"],
+            "metadatas": [],
+            "status": "ok"
+        },
+
+        str(b2): {
+            "results": ["resblob3", "resblob4"],
+            "metadatas": [],
+            "status": "ok"
+        },
+
+        str(b3): {
+            "results": ["resblob5", "resblob6"],
+            "metadatas": [],
+            "status": "ok"
+        }
+    }
+}
+
+data = test(sendTasks(wtok, tasksreturned), "testSendTasks")

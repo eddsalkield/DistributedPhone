@@ -153,14 +153,23 @@ def getTasks(token, pname, maxtasks):
     data = cbor.loads(r.content)
     return (data["success"] and data["error"] == "", data)
 
-def sendTasks(token, pname, taskID, results, metadatas, status):
+def sendTasks(token, tasks):
     r = requests.post("http://" + SERVER_IP + "/sendTasks", data = cbor.dumps(
         {   "token": token,
+            "tasks": tasks
+        }))
+
+    if r.status_code != 200:
+        return (False, r.text)
+
+    data = cbor.loads(r.content)
+    return (data["success"] and data["error"] == "", data)
+
+def deleteBlob(token, pname, blobID):
+    r = requests.post("http://" + SERVER_IP + "/deleteBlob", data = cbor.dumps(
+        {   "token": token,
             "pname": pname,
-            "taskID": taskID,
-            "results": results,
-            "metadatas": metadatas,
-            "status": status
+            "blobID": blobID
         }))
 
     if r.status_code != 200:
