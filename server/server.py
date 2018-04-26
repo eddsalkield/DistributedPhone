@@ -402,29 +402,27 @@ class RootServer:
         try:
             token = str(body["token"])
             username = database.querySession(token, "username") [1]
-            tasks = body[tasks]
+            tasks = body["tasks"]
         except Exception:
             return errormsg("Invalid inputs")
-        
-        if not all(isInstance(item, tuple) for item in results):
-            return errormsg("Blobs and metas in invalid format - supposed to be a list of tuples")
 
         if not checkSessionActive(token):
             return errormsg("Session expired or invalid token in logout. Please try again.")
 
-        # Construct metadatas
-        meta = {
-            "result": True,
-            "taskID": taskID,
-            "control": b'',
-            "blobs": [],
-            "blobs_n": 0
-        }
 
         for pname, project in tasks.items():
             for taskID, task in project.items():
+                # Construct metadatas
+                meta = {
+                    "result": True,
+                    "taskID": taskID,
+                    "control": b'',
+                    "blobs": [],
+                    "blobs_n": 0
+                }
+
                 results = task["results"]
-                (succ, msg) = database.sendTasks(pname, taskID, results, [meta]*len(results), username, task["status"])
+                (succ, msg) = database.sendTasks(pname, int(taskID), results, [meta]*len(results), username, task["status"])
                 if not succ:
                     return errormsg("Database error: " + msg)
 
