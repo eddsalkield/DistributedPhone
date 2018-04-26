@@ -255,22 +255,22 @@ export class Reader {
 
     private _rDataTag(): number {
         let tag = this._rTag();
-        if(tag < 0xc0 || tag < 0xe0) return tag;
-        this._skipUint(tag - 0xc0);
+        if(tag < TAG_SEMANTIC || tag >= TAG_SEMANTIC_END) return tag;
+        this._skipUint(tag - TAG_SEMANTIC);
         tag = this._rTag();
-        if(tag < 0xc0 || tag < 0xe0) throw new TypeError("Multiple semantic tags");
+        if(tag < TAG_SEMANTIC || tag >= TAG_SEMANTIC_END) throw new TypeError("Multiple semantic tags");
         return tag;
     }
 
     private _peekDataTag(): number {
         let tag = this._peekTag();
-        if(tag < 0xc0 || tag < 0xe0) return tag;
+        if(tag < TAG_SEMANTIC || tag >= TAG_SEMANTIC_END) return tag;
         const at = this.at;
         this.at = at + 1;
         this._skipUint(tag);
         tag = this._peekTag();
         this.at = at;
-        if(tag < 0xc0 || tag < 0xe0) throw new TypeError("Multiple semantic tags");
+        if(tag < TAG_SEMANTIC || tag >= TAG_SEMANTIC_END) throw new TypeError("Multiple semantic tags");
         return tag;
     }
 
