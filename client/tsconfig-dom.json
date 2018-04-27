@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig-base.json",
+  "compilerOptions": {
+    "outDir": "dist/tsc/dom",
+    "lib": ["es2018", "dom"],
+    "jsx": "react"
+  },
+  "include": [
+    "./src/index.ts",
+    "./src/exec/tests/*.ts",
+    "./src/exec/test-rig.ts"
+  ]
+}
