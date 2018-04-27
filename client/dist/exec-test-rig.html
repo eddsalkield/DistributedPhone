@@ -1,0 +1,23 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"/>
+<title>Insert Title Here</title>
+<script src="exec-test-rig.js"></script>
+<style>
+#runners {
+	display: flex;
+}
+#runners > div {
+	flex: 1;
+}
+</style>
+</head>
+<body>
+	Calculate Fibonacci numbers from <input type="number" id="in_min" value="1" /> to <input type="number" id="in_max" value="10" /> <strong>very</strong> slowly <input type="number" id="in_cnt" value="500" /> times.<br />
+	<button id="but_more">Add more tasks</button>
+	<button id="but_start">Add a device</button>
+	<br />
+
+	<table><tbody id="stat_main"></tbody></table>
+
+	<div id="runners"></div>
+</body>
+</html>
