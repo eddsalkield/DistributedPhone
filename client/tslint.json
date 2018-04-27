@@ -1,0 +1,47 @@
+{
+  "defaultSeverity": "error",
+  "extends": [
+    "tslint:recommended"
+  ],
+  "jsRules": {},
+  "rules": {
+    "indent": ["spaces", 4],
+    "space-before-function-paren": ["asyncArrow"],
+    "whitespace": [true, {
+      "check-branch": "nospace",
+      "check-decl": "onespace",
+      "check-module": "onespace",
+      "check-separator": "onespace",
+      "check-rest-spread": "onespace",
+      "check-type": "onespace",
+      "check-preblock": "onespace"
+    }],
+    "variable-name": [true, "ban-keywords", "check-format", "allow-leading-underscore", "allow-snake-case"],
+    "semicolon": [true, "always"],
+    "interface-name": false,
+    "max-classes-per-file": false,
+    "member-ordering": false,
+    "one-variable-per-declaration": false,
+    "curly": [true, "ignore-same-line"],
+    "trailing-comma": [true, {
+      "multiline": {
+        "arrays": "always",
+        "objects": "always",
+        "functions": "ignore",
+        "imports": "always",
+        "exports": "always",
+        "typeLiterals": "always"
+      },
+      "singleline": "never"
+    }],
+    "object-literal-sort-keys": false,
+    "object-literal-shorthand": false,
+    "no-empty": false,
+    "no-bitwise": false,
+    "no-var-requires": false,
+    "no-string-literal": false,
+    "object-literal-key-quotes": [true, "consistent"],
+    "no-console": false
+  },
+  "rulesDirectory": []
+}

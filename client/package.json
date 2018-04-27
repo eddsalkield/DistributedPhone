@@ -1,0 +1,18 @@
+{
+  "scripts": {
+    "watch": "yarn run webpack -w",
+    "lint": "yarn run tslint --project tsconfig-dom.json && yarn run tslint --project tsconfig-worker.json"
+  },
+  "dependencies": {
+    "double-ended-queue": "*"
+  },
+  "devDependencies": {
+    "@types/webassembly-js-api": "*",
+    "raw-loader": "*",
+    "ts-loader": "*",
+    "tslint": "*",
+    "typescript": "^2.8.1",
+    "webpack": "*",
+    "webpack-cli": "*"
+  }
+}

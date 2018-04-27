@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig-base.json",
+  "compilerOptions": {
+    "outDir": "dist/tsc/worker",
+    "lib": ["es2018"]
+  },
+  "files": [
+    "src/node-executor.ts"
+  ]
+}

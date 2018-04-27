@@ -178,9 +178,10 @@ def deleteBlob(token, pname, blobID):
     data = cbor.loads(r.content)
     return (data["success"] and data["error"] == "", data)
 
-def getGraphs(pname):
+def getGraphs(pname, precision):
     r = requests.post("http://" + SERVER_IP + "/getGraphs", data = cbor.dumps(
         {   "pname": pname,
+            "precision": precision
         }))
 
     if r.status_code != 200:
