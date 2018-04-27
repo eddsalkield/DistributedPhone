@@ -374,7 +374,7 @@ export class Reader {
     private _bytes(tag: number): Uint8Array {
         if(!isBytes(tag)) return this._unknown(tag, "byte string");
         const s = this._rBytes(TAG_BYTES, tag);
-        if(s.length === 0) return new Uint8Array();
+        if(s.length === 0) return new Uint8Array(0);
         if(s.length === 1) return s[0];
         let l = 0;
         for(const b of s) l += b.byteLength;
