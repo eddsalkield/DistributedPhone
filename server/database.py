@@ -145,10 +145,27 @@ def blobToTask(pID, blobID):
     except Exception:
         return (False, "Failed to find blob")
 
+
+    # Test whether the blob actually is a task
+    try:
+        task = projects[pID]["blobs"][blobID]["blob"]
+        valid = True
+        valid = valid and type(task["program"]["id"]) is int
+        valid = valid and type(task["program"]["size"]) is int
+        valid = valid and type(task["control"]) is bytes
+        
+        for blob in task["blobs"]:
+            test = blob["id"]
+            valid = valid and type(blob["size"]) is int
+    except Exception:
+        return (False, "Blob is not a correctly formatted task")
+
+    if not valid:
+        return (False, "Blob not a valid task")
+
     # The blob exists within the project
     projects[pID]["blobs"][blobID]["task"] = True
     
-    # Test whether the blob actually is a task
 
     # Push a copy onto the queue of "to-do" tasks
     projects[pID]["unfinishedTasks"].append(blobID)
