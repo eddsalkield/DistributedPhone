@@ -1,6 +1,6 @@
 import sys, cbor, socket, os
 import time
-from tests import *
+from serverRequest import *
 
 # Pass the username and password as command-line arguments
 try:
