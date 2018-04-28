@@ -4,6 +4,9 @@ import time
 import os
 import cbor
 
+# This script registers a worker, logs in, retrieves and computes 
+# a single task, send back the result and terminates
+
 try:
     username = sys.argv[1]
     password = sys.argv[2]
