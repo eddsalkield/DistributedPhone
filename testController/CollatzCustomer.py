@@ -1,155 +1,146 @@
-import sys, cbor, socket, urllib2
-from time import sleep
+import sys, cbor, socket, os
+import time
+from tests import *
 
-eddserver = 'http://35.178.90.246:8081/'
-project_name = "collatz"
-pdescription = "Finding numbers with long collatz sequences"
+# Pass the username and password as command-line arguments
+try:
+    username = sys.argv[1]
+    password = sys.argv[2]
+    project_name = sys.argv[3]
+except:
+    print("Please enter correct username, password and project ID")
+    sys.exit()
+
+ollatzf = open("collatzClient", 'rb')
+with open("collatzClient", "rb") as f:
+    collatz_wa = f.read()
+collatz_fs = os.path.getsize("collatzClient")
 
 class TaskDistributor:
 
-	## --- Work in Progress --- ### (won't compile)
+    # Areas for improvement:
+    # 	-- Better distribution of task sizes / greater variety in interval length
+    #	-- Better storage of results (and actually doing something with them)
+    
+    # For now we just have a fixed range.
+    # Starting at 'search_start', we have 'number_tasks' intervals of length 'fixed_range'
+    # So the total search will be between [search_start ... search_start + fixed_range * number_tasks)
+    search_start = 900000
+    fixed_range  = 100
+    number_tasks = 10
 
-	# Areas for improvement:
-	#	-- Un-guess function names / interface with server (so it actually compiles)
-	#	-- Tidy up code
-	# 	-- Better distribution of task sizes / greater variety in interval length
-	#	-- Better storage of results (and actually doing something with them)
-	# 	-- Cap on the number of tasks put out there, with constant filling up:
-	#			At the moment we just put the entire range out there to be done by workers, 
-	#			then wait for them all to be computed. Although this isn't so bad as the blobs / 
-	#			tasks are quite small in size, it's not ideal. Instead we should put, say,
-	#			100 tasks out at a time, and replace them with new ones each time they done
+    def __init__ (self, token):
+            self.results = []   # List of (number, seqLength) pairs - not used at the moment
+            self.TaskIDIntervals = []  # List of (taskID, (leftInterval, rightInterval)) pairs
+            self.token = token
+            self.initTasks()
+            self.monitorBlobs()
 	
-	
-	# For now we just have a fixed range.
-	# Starting at 'search_start', we have 'number_tasks' intervals of length 'fixed_range'
-	# So the total search will be between [search_start ... search_start + fixed_range * number_tasks)
-	search_start = 900000
-	fixed_range  = 10000
-	number_tasks = 100
+    def makeTaskBlob(self):
+        (success, data) = createNewBlob(self.token, project_name, collatz_wa, {})
+        if not success:
+            print("Error when making blob task")
+            print(data["error"])
+            sys.exit()
+        return data["blobID"]
 
-	def __init__ (self, token, projectID, scanPeriod):
-		self.results = [] 			  # List of results: List of (number, sequenceLength) pairs -- may be ordered ?? will be big
-		self.relevantBlobs = []		  # List of relevant blobs - may not be best DS and may not be needed.
-		self.token = token
-		self.projectID = projectID
-		self.scanPeriod = scanPeriod # How often should it scan the DB looking for finished blobs?
-		initTasks()
-		monitorBlobs()
-	
-	def initTasks (self)
-		for taskNo in range (0, number_tasks):
-			start = search_start + taskNo * fixedRange
-			newBlobID = _makeTask (start, start + fixedRange - 1)
-			self.relevantBlobs.append(newBlobID)
+    def initTasks (self):
+        for taskNo in range (0, self.number_tasks):
 
-	## --- Work in Progress --- ##
-	def _makeTask (self, start, end):
-		blob = STRING/CBOR of (start, end) tuple ??
-		metadata = JSON/CBOR of { *metadata stuff* }
-		blobID = something.createNewBlob (self.token, self.projectID, blob, metadata)
-		taskifyBlob (blobID)
-		return blobID
-	
-	# When a worker finished a computation, it places a blob in the database along with metadata
-	# indicating whether the task is finished. The customer will routinely scan (will it?) the database for
-	# finished blobs and will acquire their results before deleting them.
-	def monitorBlobs(self):
-		while (1):
-			metaBlobs = getBlobMetadata(self.token, self.projectID, self.relevantBlobs)
-			
-			# If there are no blobs	left
-			if len(metaBlobs) == 0:
-				break
+            # Push blob containing web assembly to the database, return its ID
+            taskBlobID = self.makeTaskBlob()
+            
+            # Calculate interval
+            start = self.search_start + taskNo * self.fixed_range
+            end = start + self.fixed_range
 
-			# Get IDs of all finished blobs
-			finishedBlobIDs = []		
-			for blob in metaBlobs:
-				if (blob.finished):
-					finishedBlobIDs.append(blob.ID)
+            # Convert to bytearray data
+            leftb = start.to_bytes(16, byteorder='little')
+            rightb = end.to_bytes(16, byteorder='little')
+            intervalb = leftb + rightb
 
-		 	# Go through all finished blobs, get their results, save those results, print (for testing) and delete
-			for blobIDs in finishedBlobIDs:
-				blobGrab = getBlob(self.token, self.projectID, blobID)
-				blobData = decodeBlobData
-			
-				# Data will be something of the form: (Start Range; End Range) and a list of (End Range - Start Range + 1) numbers
-				startRange = blobData.startRange
-				endRange = blobData.endRange
-				seqLengthList = blobData.getSequences # : List[Int]
+            taskInfo = { "program": {"id": taskBlobID, "size": collatz_fs},
+                         "control": intervalb, "blobs": []}
 
-				number = startRange
-				for seqLength in seqLengthList:
-					self.results.append((number, seqLength))
-					number += 1
-					print((number, seqLength))
+            (success, dataBlob) = createNewBlob(token, project_name, taskInfo, {})
+            if (not success):
+                print("Error when creating blob (pre-taskify)")
+                print(dataBlob["error"])
+                sys.exit()
+            
+            (success, dataTask) = blobToTask(token, project_name, dataBlob["blobID"])
+            if (not success):
+                print ("Error when taskifying")
+                print (dataTask["error"])
+                sys.exit()
 
-				# Finally, delete the blob
-				deleteBlob(self.token, self.projectID, blobID)
+    def processResults(self, bytedata):
+        # First decode the intervals from the data (16 bytes)
+        # Right interval isnt needed
+        print("size: " + str(len(bytedata)))
 
-			# Sleep before scanning again
-			sleep(self.scanPeriod)
+        left = 0 # Left interval (16 bytes)
+        for i in range(0, 16):
+            left += bytedata[i]<<8*i
 
+        right = 0 # Right interval (16 bytes)
+        for i in range (16, 32):
+            right += bytedata[i]<<8*(i-16)
 
-# Login to the server with command-line arguments (username, password)
-# Returns session token
-def login ():
-	
-	# Pass the username and password as command-line arguments:
-	try:
-		username = sys.argv[1]
-		password = sys.argv[2]
-	except:
-		raise Exception('Please enter a username and password!')
+        print(str(left) + " " + str(right))
+        for i in range (0, right - left):
+            seqLength = 0
+            for j in range (0, 4): # Int sequence lengths
+                seqLength += bytedata[4 * i + j + 32]<<8*j
+            print((left + i, seqLength)) 
 
-	# Login to the server
-	loginString = 'login?username=' + username + '&password=' + password + '&accesslevel=customer'
-	loginRead = urllib2.urlopen(eddserver + loginString).read()
-	loginDump = cbor.loads(loginRead)
-	
-	# Extract details from get request
-	successLogin = loginDump.get('success')
-	errorLogin = loginDump.get('error')
-	token = loginDump.get('token')	
+    # When a worker finished a computation, it places a blob in the database along with metadata
+    # indicating whether the task is finished. The customer will routinely scan (will it?) the database for
+    # finished blobs and will acquire their results before deleting them.
+    def monitorBlobs(self):
+        dataRecieved = 0
+        while (dataRecieved < self.number_tasks):
 
-	# If bad login, report & exit
-	if not successLogin:
-		print(errorLogin)
-		sys.exit()
+            # Get meta-data on all blobs (for now)
+            (success, allData) = getBlobMetadata(self.token, project_name, [])
+            if (not success):
+                print ("Error when retrieving metadata")
+                continue
 
-	return token
+            metaDict = allData["metadata"]
+            for blobid, metadata  in metaDict.items():
+                if (bool(metadata)): # Non empty metadata (result)
+                    if (metadata["result"] == True): # Double check its a result
+                        # So blobID points to a result
+                        (success, data) = getBlob(self.token, project_name, blobid)
+                        if (not success):
+                            print ("Failure to retrieve result blob")
+                            sys.exit()
+                        blobval = data["blob"]
+                        self.processResults(blobval)
+                        dataRecieved += 1
+                        deleteBlob(self.token, project_name, blobid)
+                        ### make sure blob is actually deleted ###
+                        ### time.sleep(0.1)
 
-# Creates a new project with project name and description (above)
-# Returns projectID
-def createProject():
-
-	projectString = 'createNewProject?token=' + str(token) + '&pname=collatz&pdescription=' + pdescription
-	projectRead = urllib2.urlopen(eddserver + projectString).read()
-	projectDump = cbor.loads(projectRead)
-
-	successProject = projectDump.get('success')
-	errorProject = projectDump.get('error')
-	projectID = projectDump.get('pID')
-
-	if not successProject:
-		print(errorProject)
-		sys.exit()
-
-	return projectID
 
 ############### START HERE ################
 if __name__ == '__main__':
 
-	# Just ping server to check it's up and running
-	try: 
-    	 urllib2.urlopen(eddserver + 'ping', timeout = 1)
-	except urllib2.URLError as e:
-		 raise Exception('URL error: %r' % e)    			 
-	except socket.timeout as e:
-		 raise Exception("Socket timeout %r" % e)	
+    # Just ping server to check it's up and running
+    (success, ret) = testPing()
+    if (not success):
+        print("Server ping error")
+        print(ret["error"])
+        sys.exit()
+    
+    (success, tokenDict) = login(username, password, "customer")
+    if (not success):
+        print("Token acquisition failed")
+        print(tokenDict)
+        sys.exit()
+    
+    token = tokenDict["token"]
 
-	token = login()
-	projectID = createProject() 
-
-	# Now we can actually start making and distributing tasks... set scanning to 5s period
-	distributor = TaskDistributor(token, projectID, 5)
+    # Login successful
+    distributor = TaskDistributor(token)
