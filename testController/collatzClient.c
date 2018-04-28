@@ -22,6 +22,13 @@ __uint128_t u128_read(const void *vin) {
 	return val;
 }
 
+void u128_write(const void *vout, __uint128_t val) {
+    unsigned char *out = (unsigned char*)vout;
+    for (int i = 0; i < 16; i++) {
+	out[i] = (val >> 8*i);
+    }
+}
+
 void seqlen_write(const void *vout, seqlen_t val) {
     unsigned char *out = (unsigned char*)vout;
     int s = sizeof(seqlen_t);
@@ -29,6 +36,7 @@ void seqlen_write(const void *vout, seqlen_t val) {
 	out[i] = (val >> 8*i);
     }
 }
+
 
 
 // Runs a task. The request's blobs, as well as the request object itself,
@@ -56,10 +64,16 @@ struct pptw1_response *pptw1_run(struct pptw1_request* req) {
 
     // Our blob memory
     char* blobMemStart = pptw1_malloc(sizeof(seqlen_t[right - left]));
-    char* blobMemIndex = blobMemStart;
+    char* blobMemIndex = blobMemStart; 
+
+    // Write interval
+    u128_write(blobMemIndex, left); blobMemIndex += sizeof(__uint128_t);
+    u128_write(blobMemIndex, right); blobMemIndex += sizeof(__uint128_t);
 
     __uint128_t num;  // current number we are testing
     seqlen_t seqLength; // length of that sequence
+
+    // search [left..right)
 
     for (__uint128_t i = left; i < right; i++) {
 	num = i; seqLength = 0;
