@@ -10,8 +10,7 @@ try:
 except:
     print("Please enter correct username, password and project ID")
     sys.exit()
-
-ollatzf = open("collatzClient", 'rb')
+	
 with open("collatzClient", "rb") as f:
     collatz_wa = f.read()
 collatz_fs = os.path.getsize("collatzClient")
@@ -76,17 +75,11 @@ class TaskDistributor:
 
     def processResults(self, bytedata):
         # First decode the intervals from the data (16 bytes)
-        # Right interval isnt needed
         print("size: " + str(len(bytedata)))
-
-        left = 0 # Left interval (16 bytes)
-        for i in range(0, 16):
-            left += bytedata[i]<<8*i
-
-        right = 0 # Right interval (16 bytes)
-        for i in range (16, 32):
-            right += bytedata[i]<<8*(i-16)
-
+	
+	left = int.from_bytes(bytedata[:16], 'little')
+	right = int.from_bytes(bytedata[16:32], 'little')
+	
         print(str(left) + " " + str(right))
         for i in range (0, right - left):
             seqLength = 0
