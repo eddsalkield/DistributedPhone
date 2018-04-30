@@ -29,16 +29,19 @@ test(registerCustomer("Edd", "password1"), "testRegisterCustomer")
 test(registerWorker("Hristo", "hunter2"), "testRegisterWorker")
 data = test(login("Edd", "password1", "customer"), "testCustomerLogin")
 ctok = data["token"]
+test(logout(ctok), "testCustomerLogout")
+data = test(login("Edd", "password1", "customer"), "testCustomerLogin")
+ctok = data["token"]
 data = test(login("Hristo", "hunter2", "worker"), "testLoginWorker")
 wtok = data["token"]
 
 # Test blob creation
 test(createNewProject(ctok, "Project", "Description"), "testCreateNewProject")
-data = test(createNewBlob(ctok, "Project", "blob1", "meta1"), "testCreateNewBlob")
+data = test(createNewBlob(ctok, "Project", b'blob1', b'meta1'), "testCreateNewBlob")
 b1 = data["blobID"]
-data = test(createNewBlob(ctok, "Project", "blob2", "meta2"), "testCreateNewBlob")
+data = test(createNewBlob(ctok, "Project", b'blob2', b'meta2'), "testCreateNewBlob")
 b2 = data["blobID"]
-data = test(createNewBlob(ctok, "Project", "blob3", "meta3"), "testCreateNewBlob")
+data = test(createNewBlob(ctok, "Project", b'blob3', b'meta3'), "testCreateNewBlob")
 b3 = data["blobID"]
 
 # Test blobs are correctly returned
