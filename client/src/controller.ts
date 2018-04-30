@@ -173,12 +173,12 @@ export default class Controller {
 
 function readBlobRef(r: cbor.Reader, project: string): exec_api.BlobRef {
     r.map();
-    let id: number | undefined;
+    let id: string | undefined;
     let size: number | undefined;
     while(true) {
         const key = r.maybeString();
         if(key === null) break;
-        else if(key === "id") id = r.number();
+        else if(key === "id") id = r.string();
         else if(key === "size") size = r.number();
         else r.skip();
     }
@@ -323,7 +323,7 @@ class WorkProvider implements exec_api.WorkProvider {
                     if(key === null) break;
                     if(key === "success") success = r.boolean();
                     else if(key === "error") error = r.string();
-                    else if(key === "taskIDs") taskIDs = cbut.readArray(r, (rd) => `${project}/${rd.number()}`);
+                    else if(key === "taskIDs") taskIDs = cbut.readArray(r, (rd) => `${project}/${rd.string()}`);
                     else if(key === "tasks") taskData = cbut.readArray(r, (rd) => readTaskDatum(rd, project));
                     else r.skip();
                 }
