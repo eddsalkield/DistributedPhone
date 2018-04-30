@@ -502,7 +502,7 @@ export default class Runner {
     private save_cur: Promise<void> = Promise.resolve();
     private save_next: Promise<void> | null = null;
     private save_timer: number | null = null;
-    private save(now: boolean): Promise<void> {
+    public save(now: boolean): Promise<void> {
         if(now && this.save_timer !== null) {
             clearTimeout(this.save_timer);
             this.save_timer = null;

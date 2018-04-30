@@ -77,7 +77,7 @@ export default class Controller {
         }
         return this.runner.then((r) => {
             this.runner = this.runnerPromise();
-            r.stop();
+            return r.stop();
         }).catch(() => {}).then(() => {
             return IDBStorage.delete("blob_storage");
         });
