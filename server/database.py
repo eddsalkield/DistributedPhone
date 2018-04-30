@@ -13,11 +13,11 @@ from header import *
 
 def changeGraph(pID, graphname, diff):
     graphs = projects[pID]["graphing"]
-    lastActive = graphs[graphname][-1:][0][1]
-    graphs[graphname].append(tuple((getTime(), lastActive+diff)))
+    lastActive = graphs[graphname][-1:][0]["y"]
+    graphs[graphname].append({"x": getTime(), "y": lastActive+diff})
 
 def getTime():
-    return mktime(datetime.now().timetuple())
+    return int(mktime(datetime.now().timetuple()))*1000
 
 def salthash(passwd, salt):
     return passwd
@@ -114,11 +114,11 @@ def createNewProject(pname, pdescription):
     # No other project by this user has the given name
     
     projects[pname] = {"blobs": {}, "blobids": 0,  "unfinishedTasks": [], "description": pdescription, "graphing":{
-        "activeWorkers":    [tuple((getTime(), 0))],
-        "totalWorkers":     [tuple((getTime(), 0))],
-        "tasksCompleted":   [tuple((getTime(), 0))],
-        "tasksFailed":      [tuple((getTime(), 0))],
-        "tasksRefused":     [tuple((getTime(), 0))]
+        "activeWorkers":    [{"x": getTime(), "y": 0}],
+        "totalWorkers":     [{"x": getTime(), "y": 0}],
+        "tasksCompleted":   [{"x": getTime(), "y": 0}],
+        "tasksFailed":      [{"x": getTime(), "y": 0}],
+        "tasksRefused":     [{"x": getTime(), "y": 0}]
     }}
     return True
 
@@ -193,7 +193,7 @@ def getBlob(pID, blobID):
     try:
         b = projects[pID]["blobs"][blobID]
     except Exception:
-        return (False, 0, 0)
+        return (False, str(projects[pID]["blobs"][blobID]), 0)
     
     return (True, b["blob"], b["metadata"])
 
@@ -215,7 +215,7 @@ def getTasks(pID, username, maxtasks):
     try:
         b = projects[pID]
     except Exception:
-        return (False, "Project does not exist", 0)
+        return (False, "Project does not exist. Projects: " + str(projects), 0)
 
     # Test if the unfinished tasks array has been constructed
     try:
@@ -231,7 +231,7 @@ def getTasks(pID, username, maxtasks):
         changeGraph(pID, "activeWorkers", 1)
 
     # Find new tasks to be done
-    taskIDs = list(map(int, np.setdiff1d(projects[pID]["unfinishedTasks"], users[username]["issuedTasks"][pID]) [:maxtasks]))
+    taskIDs = list(map(str, np.setdiff1d(projects[pID]["unfinishedTasks"], users[username]["issuedTasks"][pID]) [:maxtasks]))
 
     #unf = projects[pID]["unfinishedTasks"]
     #taskID = unf.pop(0)
@@ -242,8 +242,7 @@ def getTasks(pID, username, maxtasks):
     for t in taskIDs:
         (succ, b, m) = getBlob(pID, t)
         if not succ:
-            return (False, "Task collection error", 0)
-
+            return (False, "Task collection error: " + str(b), 0)
         tasks.append(b)
 
     users[username]["issuedTasks"][pID] = users[username]["issuedTasks"][pID] + taskIDs

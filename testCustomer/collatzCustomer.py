@@ -11,7 +11,7 @@ except:
     print("Please enter correct username, password and project ID")
     sys.exit()
 
-ollatzf = open("collatzClient", 'rb')
+#ollatzf = open("collatzClient", 'rb')
 with open("collatzClient", "rb") as f:
     collatz_wa = f.read()
 collatz_fs = os.path.getsize("collatzClient")
@@ -37,7 +37,7 @@ class TaskDistributor:
     # So the total search will be between [search_start ... search_start + fixed_range * number_tasks)
     search_start = 900000
     fixed_range  = 100
-    number_tasks = 1
+    number_tasks = 10
 
     def __init__ (self, token, scanPeriod):
             self.results = []   # List of (number, seqLength) pairs
@@ -60,6 +60,7 @@ class TaskDistributor:
 
             # Push blob containing web assembly to the database, return its ID
             taskBlobID = self.makeTaskBlob()
+            print("Blob creation succeeded")
             
             # Calculate interval
             start = self.search_start + taskNo * self.fixed_range
@@ -78,12 +79,15 @@ class TaskDistributor:
                 print("Error when creating blob (pre-taskify)")
                 print(dataBlob["error"])
                 sys.exit()
+
+            print("Successfully created task blob")
             
             (success, dataTask) = blobToTask(token, project_name, dataBlob["blobID"])
             if (not success):
                 print ("Error when taskifying")
                 print (dataTask["error"])
                 sys.exit()
+            print("Successfully converted blob to task")
 
     def processResults(self, bytedata):
         # First decode the intervals from the data (16 bytes)
@@ -120,11 +124,13 @@ class TaskDistributor:
     def monitorBlobs(self):
         dataRecieved = 0
         while (dataRecieved < self.number_tasks):
+            time.sleep(5)
 
             # Get meta-data on all blobs (for now)
             (success, allData) = getBlobMetadata(self.token, project_name, [])
             if (not success):
                 print ("Error when retrieving metadata")
+                print(allData)
                 continue
 
             print(allData)
