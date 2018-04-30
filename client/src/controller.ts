@@ -187,17 +187,13 @@ function readBlobRef(r: cbor.Reader, project: string): exec_api.BlobRef {
     return {id: project + "/" + id, size: size};
 }
 
-interface TaskDatum {
-    program: exec_api.BlobRef;
-    control: Uint8Array;
-    blobs: exec_api.BlobRef[];
-}
-
-function readTaskDatum(r: cbor.Reader, project: string): TaskDatum {
+function readTask(project: string, id: string, data: Uint8Array): exec_api.Task {
     let program: exec_api.BlobRef | undefined;
     let control: Uint8Array | undefined;
     let blobs: exec_api.BlobRef[] = [];
+
     try {
+        const r = new cbor.Reader(data);
         r.map();
         while(true) {
             const key = r.maybeString();
@@ -213,7 +209,14 @@ function readTaskDatum(r: cbor.Reader, project: string): TaskDatum {
         throw e;
     }
     if(program === undefined || control === undefined) throw new err.Validation("Invalid task");
-    return {program: program, control: cbut.own(control), blobs: blobs};
+
+    return {
+        id: `${project}/${id}`,
+        project: project,
+        program: program,
+        in_control: control,
+        in_blobs: blobs,
+    };
 }
 
 class WorkProvider implements exec_api.WorkProvider {
@@ -313,7 +316,7 @@ class WorkProvider implements exec_api.WorkProvider {
             let success: boolean | undefined;
             let error: string | undefined;
             let taskIDs: string[] | undefined;
-            let taskData: TaskDatum[] | undefined;
+            let taskBlobs: Uint8Array[] | undefined;
 
             try {
                 const r = new cbor.Reader(data);
@@ -323,8 +326,8 @@ class WorkProvider implements exec_api.WorkProvider {
                     if(key === null) break;
                     if(key === "success") success = r.boolean();
                     else if(key === "error") error = r.string();
-                    else if(key === "taskIDs") taskIDs = cbut.readArray(r, (rd) => `${project}/${rd.string()}`);
-                    else if(key === "tasks") taskData = cbut.readArray(r, (rd) => readTaskDatum(rd, project));
+                    else if(key === "taskIDs") taskIDs = cbut.readArray(r, (rd) => rd.string());
+                    else if(key === "tasks") taskBlobs = cbut.readArray(r, (rd) => rd.bytes());
                     else r.skip();
                 }
                 r.end();
@@ -338,24 +341,16 @@ class WorkProvider implements exec_api.WorkProvider {
             }
 
             if(taskIDs === undefined) throw new err.Validation("taskIDs");
-            if(taskData === undefined) throw new err.Validation("tasks missing");
+            if(taskBlobs === undefined) throw new err.Validation("tasks missing");
 
             const n = taskIDs.length;
-            if(taskData.length !== n) {
+            if(taskBlobs.length !== n) {
                 throw new err.Validation("tasks.length !== taskIDs.length");
             }
 
             const tasks: exec_api.Task[] = [];
-
             for(let i = 0; i < n; i += 1) {
-                const td = taskData[i];
-                tasks.push({
-                    id: taskIDs[i],
-                    project: project,
-                    program: td.program,
-                    in_control: td.control,
-                    in_blobs: td.blobs,
-                });
+                tasks.push(readTask(project, taskIDs[i], taskBlobs[i]));
             }
 
             if(tasks.length === 0) {
