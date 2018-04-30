@@ -48,7 +48,7 @@ class TaskDistributor:
             self.monitorBlobs()
 	
     def makeTaskBlob(self):
-        (success, data) = createNewBlob(self.token, project_name, collatz_wa, {})
+        (success, data) = createNewBlob(self.token, project_name, cbor.dumps(collatz_wa), cbor.dumps({}))
         if not success:
             print("Error when making blob task")
             print(data["error"])
@@ -73,7 +73,7 @@ class TaskDistributor:
             taskInfo = { "program": {"id": taskBlobID, "size": collatz_fs},
                          "control": intervalb, "blobs": []}
 
-            (success, dataBlob) = createNewBlob(token, project_name, taskInfo, {})
+            (success, dataBlob) = createNewBlob(token, project_name, cbor.dumps(taskInfo), cbor.dumps({}))
             if (not success):
                 print("Error when creating blob (pre-taskify)")
                 print(dataBlob["error"])
@@ -130,6 +130,11 @@ class TaskDistributor:
             print(allData)
                         
             metaDict = allData["metadata"]
+
+            # Convert all metadata out of CBOR form
+            for bID, meta in metaDict.items():
+                metaDict[bID] = cbor.loads(meta)
+
             for blobid, metadata  in metaDict.items():
                 if (bool(metadata)):
                     if (metadata["result"] == True):
