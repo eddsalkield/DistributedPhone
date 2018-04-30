@@ -7,6 +7,7 @@ from time import mktime
 from Crypto.Random import random
 import numpy as np
 import string
+import cbor
 
 from header import *
 
@@ -131,7 +132,7 @@ def createNewBlob(pID, blob, metadata):
 
     # Create the new blob
     p = projects[pID]
-    bID = p["blobids"]
+    bID = str(p["blobids"])
     p["blobids"] += 1
 
     p["blobs"][bID] = {"blob": blob, "metadata": metadata, "task": False, "finished": False}
@@ -148,9 +149,9 @@ def blobToTask(pID, blobID):
 
     # Test whether the blob actually is a task
     try:
-        task = projects[pID]["blobs"][blobID]["blob"]
+        task = cbor.loads(projects[pID]["blobs"][blobID]["blob"])
         valid = True
-        valid = valid and type(task["program"]["id"]) is int
+        valid = valid and type(task["program"]["id"]) is str
         valid = valid and type(task["program"]["size"]) is int
         valid = valid and type(task["control"]) is bytes
         

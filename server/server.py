@@ -180,6 +180,9 @@ class RootServer:
         except Exception:
             return errormsg("Invalid inputs")
 
+        if not (type(blob) is bytes and type(metadata) is bytes):
+            return errormsg("Invalid blob or metadata type - should be bytes")
+
         if not checkSessionActive(token):
             return errormsg("Session expired or invalid token in logout. Please try again.")
         
@@ -205,7 +208,7 @@ class RootServer:
         try:
             token = str(body["token"])
             pname = str(body["pname"])
-            blobID = int(body["blobID"])
+            blobID = str(body["blobID"])
         except Exception:
             return errormsg("Invalid inputs")
 
@@ -237,7 +240,7 @@ class RootServer:
             pname = str(body["pname"])
             blobIDs = []
             for i, blob in enumerate(body["blobIDs"]):
-                blobIDs.append(int(blob))
+                blobIDs.append(str(blob))
         except Exception:
             return errormsg("Invalid inputs")
 
@@ -265,7 +268,7 @@ class RootServer:
         try:
             token = str(body["token"])
             pname = str(body["pname"])
-            name = int(body["name"])
+            name = str(body["name"])
         except Exception:
             return errormsg("Invalid inputs")
 
@@ -292,7 +295,7 @@ class RootServer:
         try:
             token = str(body["token"])
             pname = str(body["pname"])
-            blobID = int(body["blobID"])
+            blobID = str(body["blobID"])
         except Exception:
             return errormsg("Invalid inputs")
 
@@ -362,6 +365,12 @@ class RootServer:
             return errormsg("Session expired or invalid token in logout. Please try again.")
 
 
+        results = task["results"]
+        for b in results:
+            if not type(b) is bytes:
+                return errormsg("Tasks were not of type bytes")
+
+
         for pname, project in tasks.items():
             for taskID, task in project.items():
                 # Construct metadatas
@@ -373,8 +382,7 @@ class RootServer:
                     "blobs_n": 0
                 }
 
-                results = task["results"]
-                (succ, msg) = database.sendTasks(pname, int(taskID), results, [meta]*len(results), username, task["status"])
+                (succ, msg) = database.sendTasks(pname, taskID, results, [meta]*len(results), username, task["status"])
                 if not succ:
                     return errormsg("Database error: " + msg)
 
