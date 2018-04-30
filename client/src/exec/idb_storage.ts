@@ -104,8 +104,8 @@ export default class IDBStorage implements Storage {
         });
     }
 
-    public get(id: string): Promise<ArrayBuffer> {
-        return new Promise<ArrayBuffer>((resolve, reject) => {
+    public get(id: string): Promise<Uint8Array> {
+        return new Promise<Uint8Array>((resolve, reject) => {
             const tr = this.db.transaction(["blobs"], "readonly");
             tr.onerror = idbReject(reject);
 
@@ -125,7 +125,7 @@ export default class IDBStorage implements Storage {
                     }));
                     return;
                 }
-                resolve(data);
+                resolve(new Uint8Array(data));
             };
         });
     }

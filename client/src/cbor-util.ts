@@ -4,7 +4,7 @@ import * as err from "@/err";
 export function readArray<T>(r: cbor.Reader, f: (r: cbor.Reader) => T): T[] {
     const l: T[] = [];
     r.array();
-    while(r.hasNext) {
+    while(r.hasNext()) {
         l.push(f(r));
     }
     r.end();
@@ -68,4 +68,9 @@ export function writeError(w: cbor.Writer, d: err.Data): void {
         else writeError(w, v);
     }
     w.end();
+}
+
+export function own(d: Uint8Array): Uint8Array {
+    if(d.byteOffset === 0 && d.byteLength === d.buffer.byteLength) return d;
+    return d.slice();
 }

@@ -11,7 +11,7 @@ export interface Task {
     id: string;
     project: string;
     program: BlobRef;
-    in_control: ArrayBuffer;
+    in_control: Uint8Array;
     in_blobs: BlobRef[];
 }
 
@@ -25,7 +25,7 @@ export interface TaskResultBase {
 
 export interface TaskResultOK extends TaskResultBase {
     status: "ok";
-    data: ArrayBuffer[];
+    data: Uint8Array[];
 }
 
 export interface TaskResultError extends TaskResultBase {
@@ -41,7 +41,7 @@ export type TaskResult = TaskResultOK | TaskResultError | TaskResultRefused;
 
 export interface BlobProvider {
     // expected_size is provided for accounting purposes.
-    getBlob(name: string, expected_size: number): Promise<ArrayBuffer>;
+    getBlob(name: string, expected_size: number): Promise<Uint8Array>;
 
     /* Maximum number of bytes to store. */
     readonly cache_max: number;

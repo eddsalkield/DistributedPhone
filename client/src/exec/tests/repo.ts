@@ -21,7 +21,7 @@ function ref(size: number, ix: number): Ref {
 function env(): <T>(wrapped: (the_repo: BlobRepo, the_api: MockAPI) => Promise<T>) => Promise<T> {
     const the_api = new MockAPI(null);
     for(let size = 1; size < 100; size += 1) {
-        const data = new ArrayBuffer(size);
+        const data = new Uint8Array(size);
         for(let ix = 0; ix < 100; ix += 1) {
             the_api.blobs.set(`${size}/${ix}`, data);
         }

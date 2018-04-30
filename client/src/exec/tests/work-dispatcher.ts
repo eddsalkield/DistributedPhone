@@ -19,7 +19,7 @@ function onWork() {
         work_i += 1;
         if(cmd === "done") {
             postMessage({result: {
-                control: new ArrayBuffer(0),
+                control: new Uint8Array(0),
                 data: [],
             }});
         } else if(cmd === "fail") {
@@ -79,7 +79,7 @@ function withWD<T>(f: (d: wd.Dispatcher) => Promise<T>): Promise<T> {
 function task(name: string, ...steps: string[]): workapi.InWork {
     return {
         program: {id: name, size: 0},
-        control: new ArrayBuffer(0),
+        control: new Uint8Array(0),
         data: steps.map((s) => ({id: s, size: 0})),
     };
 }
@@ -200,8 +200,8 @@ function testControl() {
                         if(out.get_blob.id !== "2") fail(new Error("Expected different request"));
                         state = 2;
                         self.setTimeout(() => {
-                            ctl2.sendControl({get_blob: ["2", new ArrayBuffer(0)]}, []);
-                            ctl2.sendControl({get_blob: ["1", new ArrayBuffer(0)]}, []);
+                            ctl2.sendControl({get_blob: ["2", new Uint8Array(0)]}, []);
+                            ctl2.sendControl({get_blob: ["1", new Uint8Array(0)]}, []);
                             state = 3;
                         }, 200);
                     } else {

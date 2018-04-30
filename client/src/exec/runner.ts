@@ -25,7 +25,7 @@ class Task {
     public readonly project: string;
     public readonly program: Ref;
 
-    public in_control: ArrayBuffer;
+    public in_control: Uint8Array;
     public in_blobs: Ref[];
 
     public out_status?: TaskStatus;
@@ -36,7 +36,7 @@ class Task {
 
     constructor(
         id: string, project: string, program: Ref,
-        in_control: ArrayBuffer, in_blobs: Ref[],
+        in_control: Uint8Array, in_blobs: Ref[],
     ) {
         this.id = id;
         this.project = project;
@@ -396,7 +396,7 @@ export default class Runner {
         this.taskFinish(t);
     }
 
-    private taskDone(t: Task, data: ArrayBuffer[]) {
+    private taskDone(t: Task, data: Uint8Array[]) {
         const refs: Ref[] = [];
         const promises = data.map((d) => {
             const [ref, pr] = this.repo.create(d);
@@ -417,7 +417,7 @@ export default class Runner {
         if(msg.get_blob !== undefined) {
             const ref = msg.get_blob;
             this.repo.read(ref).then((data) => {
-                ctl.sendControl({get_blob: [ref.id, data]}, [data]);
+                ctl.sendControl({get_blob: [ref.id, data]}, [data.buffer as ArrayBuffer]);
             }, (e) => {
                 ctl.kill(e);
             });
@@ -563,7 +563,7 @@ export default class Runner {
         return t;
     }
 
-    private load(buf: ArrayBuffer) {
+    private load(buf: Uint8Array) {
         let d: rs.RunnerData;
         try {
             d = rs.loadState(buf);

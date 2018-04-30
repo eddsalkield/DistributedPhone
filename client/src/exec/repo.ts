@@ -218,7 +218,7 @@ export class BlobRepo {
     }
 
     /* Read a blob that is known to be available. */
-    public read(ref: Ref): Promise<ArrayBuffer> {
+    public read(ref: Ref): Promise<Uint8Array> {
         const blob = this.blobs.get(ref.id);
         if(!blob) {
             return Promise.reject(new err.State("Unknown blob", {
@@ -311,7 +311,7 @@ export class BlobRepo {
     }
 
     /* Create a new local blob with the given data, and pin() it. */
-    public create(data: ArrayBuffer): [Ref, Promise<void>] {
+    public create(data: Uint8Array): [Ref, Promise<void>] {
         const i = this.local_counter;
         this.local_counter = i+1;
         console.assert(
@@ -329,7 +329,7 @@ export class BlobRepo {
 
         this.incref(blob);
 
-        return [ref, this.storage.set(ref.id, new Uint8Array(data)).then(() => {
+        return [ref, this.storage.set(ref.id, data).then(() => {
             this.setBlobAvailable(blob);
             return;
         }, (e) => {
@@ -398,7 +398,7 @@ export class BlobRepo {
         this.decref(blob);
     }
 
-    public readState(name: string): Promise<ArrayBuffer | null> {
+    public readState(name: string): Promise<Uint8Array | null> {
         const blob = this.blobs.get("state/" + name);
         if(!blob) return Promise.resolve(null);
         return this.withBlobStates([blob], () => this.read(blob.ref));
