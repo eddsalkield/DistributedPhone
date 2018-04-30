@@ -45,6 +45,7 @@ onmessage = (msg) => {
             return {error: {
                 "kind": "runtime",
                 "message": e.message,
+                "stack": e.stack,
             }};
         }).then((out: workapi.Out) => {
             postMessage(out, undefined);

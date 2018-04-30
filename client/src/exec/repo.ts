@@ -297,8 +297,9 @@ export class BlobRepo {
     private setBlobError(blob: BlobState, e: Error): void {
         const trackers = Array.from(blob.trackers);
         blob.present = BlobPresence.MISSING;
+        const e2 = err.fromData(Object.assign({"blob_id": blob.ref.id}, err.dataOf(e)));
         for(const tracker of trackers) {
-            tracker.onError(blob, e);
+            tracker.onError(blob, e2);
         }
     }
 
