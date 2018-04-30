@@ -306,7 +306,10 @@ export class Reader {
     }
 
     private _skipBytes(tag_base: number, tag: number): void {
-        if(tag !== tag_base + 31) this.at += this._rUint(tag - tag_base);
+        if(tag !== tag_base + 31) {
+            this.at += this._rUint(tag - tag_base);
+            return;
+        }
         while(true) {
             const t2 = this.data.getUint8(this.at);
             if(t2 === TAG_BREAK) break;
