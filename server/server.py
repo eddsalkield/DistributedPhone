@@ -403,22 +403,26 @@ class RootServer:
             projects[pname] = {"description": project["description"]}
         return(cbor.dumps({'success': True, 'error': '', "projects": projects}))
 
-    #pname, precision
+    #pname, precision, kind (where kind in ["standardGraphs", "customGraphs"])
     @cherrypy.expose
-    def getGraphs(self, pname, prec):
+    def getGraphs(self, pname, prec, kind):
         # Get request body
         try:
             prec = int(prec)
             pname = str(pname)
+            kind = str(kind)
         except Exception:
             return errormsg("Invalid input types.")
+
+        if not kind in ["standardGraphs", "customGraphs"]:
+            return errormsg("Invalid kind. Must be 'standardGraphs' or 'customgraphs'.")
 
         try:
             description = database.projects[pname]["description"]
         except Exception:
             return errormsg("Project does not exist.")
 
-        (succ, graphs) = database.getGraphs(pname)
+        (succ, graphs) = database.getGraphs(pname, kind)
         if not succ:
             return errormsg("Database error: " + graphs)
 
@@ -440,6 +444,37 @@ class RootServer:
             graphs2 = graphs
 
         return json.dumps({'success': True, 'error': '', "graphs": graphs2, "description": description})
+
+    # Customer only
+    # token, customGraphs
+    @cherrypy.expose
+    def updateCustomGraphs(self):
+        # Get request body
+        try:
+            body = cbor.loads(cherrypy.request.body.read())
+        except Exception:
+            return errormsg("Incorrectly encoded body")
+
+        # Sanity check inputs
+        try:
+            token = str(body["token"])
+            pname = str(body["pname"])
+            customGraphs = body["pname"]
+        except Exception:
+            return errormsg("Invalid inputs")
+
+        if database.querySession(token, "accesslevel")[1] != "customer":
+            return errormsg("Invalid access level")
+
+        if not checkSessionActive(token):
+            return errormsg("Session expired or invalid token in logout. Please try again.")
+
+        (succ, err) = database.updateCustomGraphs(graphsData)
+        if not succ:
+            return errormsg("Database error: " + err)
+
+        return success()
+
         
 
 if __name__ == '__main__':

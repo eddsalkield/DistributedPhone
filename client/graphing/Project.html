@@ -102,6 +102,10 @@ var hrefArray = window.location.href.split("/");
 var pname = hrefArray[hrefArray.length-1].split(".")[0];
 var precision = 1;
 
+// Handling custom graphs
+var customGraphs = [];
+
+
 function liveGraphStart(t) {
 	getGraphs();
 	window.setInterval(function() {
@@ -111,8 +115,17 @@ function liveGraphStart(t) {
 
 var URL = "../api/getGraphs?pname=" + pname + "&prec=" + precision;
 
-function getGraphs(){
-	$.post(URL, function (data) {
+function getCustomGraphs() {
+	$.post(URL + "&kind=customGraphs", function (data) {
+		var response = JSON.parse(data);
+		console.log("Custom graph response: " + data)
+		
+		response.values()
+	
+}
+
+function getGraphs() {
+	$.post(URL + "&kind=standardGraphs", function (data) {
 		var response = JSON.parse(data);
 		console.log(data);
 

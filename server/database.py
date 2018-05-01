@@ -8,11 +8,12 @@ from Crypto.Random import random
 import numpy as np
 import string
 import cbor
+import re
 
 from header import *
 
 def changeGraph(pID, graphname, diff):
-    graphs = projects[pID]["graphing"]
+    graphs = projects[pID]["graphing"]["standardGraphs"]
     lastActive = graphs[graphname][-1:][0]["y"]
     graphs[graphname].append({"x": getTime(), "y": lastActive+diff})
 
@@ -114,11 +115,15 @@ def createNewProject(pname, pdescription):
     # No other project by this user has the given name
     
     projects[pname] = {"blobs": {}, "blobids": 0,  "unfinishedTasks": [], "description": pdescription, "graphing":{
-        "activeWorkers":    [{"x": getTime(), "y": 0}],
-        "totalWorkers":     [{"x": getTime(), "y": 0}],
-        "tasksCompleted":   [{"x": getTime(), "y": 0}],
-        "tasksFailed":      [{"x": getTime(), "y": 0}],
-        "tasksRefused":     [{"x": getTime(), "y": 0}]
+        "standardGraphs": {
+            "activeWorkers":    [{"x": getTime(), "y": 0}],
+            "totalWorkers":     [{"x": getTime(), "y": 0}],
+            "tasksCompleted":   [{"x": getTime(), "y": 0}],
+            "tasksFailed":      [{"x": getTime(), "y": 0}],
+            "tasksRefused":     [{"x": getTime(), "y": 0}],
+            "cpuTime":          [{"x": getTime(), "y": 0}]
+        },
+        "customGraphs": {}
     }}
     return True
 
@@ -290,8 +295,52 @@ def sendTasks(pID, taskID, results, metadatas, username, status):
     return (True, "")
 
 ## GRAPHING METHODS
-def getGraphs(pname):
+def getGraphs(pname, kind):
     if not pname in projects:
         return (False, "Invalid project name")
 
-    return (True, projects[pname]["graphing"])
+    return (True, projects[pname]["graphing"][kind])
+
+# GraphsData is of the graphsCBOR type, as documented in api.txt
+def updateCustomGraphs(graphsData, pname):
+    # Check that pname belongs to the user
+
+    # Check the project exists
+    if not pname in projects:
+        return (False, "Invalid project name")
+
+    # Check if graph data of the correct format
+    valid = True
+    for gname, gdict in graphsData.items():
+        valid = valid and type(gname) is str
+
+        valid = valid and type(gdict["description"]) is str
+        valid = valid and type(gdict["xlabel"]) is str
+        valid = valid and type(gdict["ylabel"]) is str
+        valid = valid and type(gdict["time"]) is bool
+        valid = valid and type(gdict["type"]) is str
+
+        for lname, ldict in gdict["keys"]:
+            valid = valid and type(lname) is str
+            
+            # Test that colour is in correct format
+            valid = valid and type(ldict["colour"]) is str
+            pattern = re.compile("rgb\([0-9]*,[0-9]*,[0-9]*\)")
+            valid = valid and (True if pattern.match(ldict["colour"]) else False)
+
+            valid = valid and type(ldict["line"]) is bool
+
+            # Test validity of data
+            for point in data:
+                valid = valid and type(point["x"]) is int
+                valid = valid and type(point["y"]) is int
+
+    if not valid:
+        return (False, "graphsData has invalid format")
+
+
+    # Save the new custom graph
+    projects[pname]["graphing"]["customGraphs"] = graphsData
+
+    return (True, "")
+

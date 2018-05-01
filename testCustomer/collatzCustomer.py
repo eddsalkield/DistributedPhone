@@ -36,8 +36,8 @@ class TaskDistributor:
     # Starting at 'search_start', we have 'number_tasks' intervals of length 'fixed_range'
     # So the total search will be between [search_start ... search_start + fixed_range * number_tasks)
     search_start = 900000
-    fixed_range  = 100
-    number_tasks = 1000
+    fixed_range  = 1000
+    number_tasks = 10
 
     def __init__ (self, token, scanPeriod):
             self.results = []   # List of (number, seqLength) pairs
