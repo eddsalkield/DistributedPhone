@@ -1,5 +1,5 @@
 import sys, cbor, socket, os
-import time
+import serverRequest
 from tests import *
 
 # Pass the username and password as command-line arguments
