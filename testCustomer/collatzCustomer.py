@@ -140,5 +140,4 @@ if __name__ == '__main__':
     token = tokenDict["token"]
 
     # Login successful
-    # Start Distributing Tasks, set scanning period to 2s
-    distributor = TaskDistributor(token, 1000)
+    distributor = TaskDistributor(token)
