@@ -183,7 +183,7 @@ def deleteBlob(token, pname, blobID):
 
 def getGraphs(pname):
     r = requests.post("http://" + SERVER_IP + "/getGraphs", data = cbor.dumps(
-        {   "pname": pname,
+        {   "pname": pname
         }))
 
     if r.status_code != 200:
@@ -195,6 +195,19 @@ def getGraphs(pname):
 
 def getProjectsList():
     r = requests.post("http://" + SERVER_IP + "/getProjectsList")
+
+    if r.status_code != 200:
+        return (False, r.text)
+
+    data = cbor.loads(r.content)
+    return (data["success"] and data["error"] == "", data)
+
+def updateGraphs(token, graphsCBOR, pname):
+    r = requests.post("http://" + SERVER_IP + "/updateCustomGraphs", data = cbor.dumps(
+    {   "token": token,
+        "pname": pname,
+        "customGraphs": graphsCBOR
+    }))
 
     if r.status_code != 200:
         return (False, r.text)
