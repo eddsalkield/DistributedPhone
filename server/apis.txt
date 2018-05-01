@@ -102,3 +102,29 @@ logout
 {
 	"token": token
 }
+
+
+
+Graphing:
+Description: Gets graph data to a specified precision
+Expects:
+{
+		"pname": 	string, // The project name
+		"precision":	string	// The precision of the data from [s, m, h, d, w]
+}
+
+Returns:
+{
+	"success":	True,
+	"error":	bool,
+	"description":	string, // The project description
+	"graphs":	{
+		"activeWorkers":	[(int, int)], // Data points mapping time to value
+		"totalWorkers":		[(int, int)],		
+		"tasksCompleted":	[(int, int)],
+		"tasksFailed":		[(int, int)],
+		"tasksRefused":		[(int, int)]
+	}
+}
+	}
+}
