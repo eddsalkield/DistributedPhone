@@ -428,16 +428,16 @@ export class Reader {
             const w = this.data.getUint16(this.at);
             this.at += 2;
 
-            const exp = (w >> 11) & 31;
-            const mantissa = w & 2047;
+            const exp = (w >> 10) & 31;
+            const mantissa = w & 1023;
 
             if(exp === 31) {
                 if(mantissa !== 0) return NaN;
                 r = Infinity;
             } else if(exp !== 0) {
-                r = (2048 + mantissa) * Math.pow(2, exp - 26);
+                r = (1024 + mantissa) * Math.pow(2, exp - 25);
             } else {
-                r = mantissa * Math.pow(2, -25);
+                r = mantissa * Math.pow(2, -24);
             }
 
             if(w & 32768) r = -r;
@@ -977,7 +977,7 @@ export class Writer {
     }
 
     public number(val: number) {
-        if(Math.abs(val) <= 9007199254740992) this.int(val);
+        if(val === Math.floor(val) && Math.abs(val) <= 9007199254740992) this.int(val);
         else this.float(val);
     }
 
