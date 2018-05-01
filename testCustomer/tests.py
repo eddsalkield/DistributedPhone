@@ -125,6 +125,7 @@ def getBlobMetadata(token, pname, blobIDs):
         return (False, r.text)
 
     data = cbor.loads(r.content)
+
     return (data["success"] and data["error"] == "", data)
     
 def getBlob(token, pname, name):
@@ -138,6 +139,8 @@ def getBlob(token, pname, name):
         return (False, r.text)
 
     data = cbor.loads(r.content)
+    data["blob"] = data["blob"]
+    data["metadata"] = cbor.loads(data["metadata"])
     return (data["success"] and data["error"] == "", data)
     
 def getTasks(token, pname, maxtasks):

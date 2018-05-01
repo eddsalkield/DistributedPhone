@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Project</title>
+<script src="https://rawgit.com/moment/moment/2.2.1/min/moment.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.0/Chart.min.js"></script>
+</head>
+
+<body>
+<h1>Project Metrics</h1>
+<h2>Description</h2>
+<p id="description">[Insert description]</p>
+<canvas id="workers"></canvas>
+<canvas id="tasks"></canvas>
+
+<style>overflow:hidden;</style>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+<script>
+var ctx = document.getElementById('workers').getContext('2d');
+
+var scatterChart = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+        datasets: [
+	    {
+            	label: 'Registered Workers',
+                borderColor: 'rgb(0, 0, 255)',
+                data: [],
+	  	showLine: true,
+	  	lineTension: 0.1
+            },
+
+	    {
+            	label: 'Active Workers',
+                borderColor: 'rgb(0, 255, 0)',
+                data: [],
+		showLine: true,
+		lineTension: 0.1
+            }
+	]
+    },
+    options: {
+        scales: {
+            xAxes: [{
+                type: 'time',
+                //position: 'bottom',
+		time: {
+			unit: 'second'
+		}
+            }]
+        }
+    }
+});
+
+
+
+var dtx = document.getElementById('tasks').getContext('2d');
+
+var taskChart = new Chart(dtx, {
+    type: 'scatter',
+    data: {
+        datasets: [
+	    {
+            	label: 'Tasks Completed',
+                borderColor: 'rgb(0, 255, 0)',
+                data: [],
+		showLine: true,
+		lineTension: 0.1
+            },
+	    {
+            	label: 'Tasks Refused',
+                borderColor: 'rgb(0, 0, 255)',
+                data: [],
+		showLine: true,
+		lineTension: 0.1
+            },
+	    {
+            	label: 'Tasks Failed',
+                borderColor: 'rgb(255, 0, 0)',
+                data: [],
+		showLine: true,
+		lineTension: 0.1
+            }]
+    },
+    options: {
+        scales: {
+            xAxes: [{
+                type: 'time',
+                //position: 'bottom',
+		time: {
+			unit: 'second'
+		}
+            }]
+        }
+    }
+});
+
+
+var desc = document.getElementById('description');
+var hrefArray = window.location.href.split("/");
+var pname = hrefArray[hrefArray.length-1].split(".")[0];
+var precision = 1;
+
+function liveGraphStart(t) {
+	getGraphs();
+	window.setInterval(function() {
+		getGraphs();
+	}, t);
+}
+
+var URL = "../api/getGraphs?pname=" + pname + "&prec=" + precision;
+
+function getGraphs(){
+	$.post(URL, function (data) {
+		var response = JSON.parse(data);
+		console.log(data);
+
+		// Update workers chart
+		scatterChart.data.datasets[1].data = response.graphs.activeWorkers;
+		scatterChart.data.datasets[0].data = response.graphs.totalWorkers;
+
+		// Update
+		taskChart.data.datasets[0].data = response.graphs.tasksCompleted;
+		taskChart.data.datasets[1].data = response.graphs.tasksRefused;
+		taskChart.data.datasets[2].data = response.graphs.tasksFailed;
+
+		desc.innerHTML = response.description;
+
+		scatterChart.update();
+
+	});
+}
+
+liveGraphStart(1000);
+
+</script>
+
+</body>
+</html>
