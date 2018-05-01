@@ -229,7 +229,7 @@ export class Reader {
         } else if(tag === 25) {
             this.at += 2;
         } else if(tag === 26) {
-            this.at += 2;
+            this.at += 4;
         } else if(tag === 27) {
             this.at += 8;
         } else {
@@ -249,7 +249,7 @@ export class Reader {
             return v;
         } else if(tag === 26) {
             const v = this.data.getUint32(this.at);
-            this.at += 2;
+            this.at += 4;
             return v;
         } else if(tag === 27) {
             let v = this.data.getUint32(this.at);
@@ -808,7 +808,7 @@ export class Writer {
             this.at += 5;
         } else if(val < 18446744073709551616) {
             this._reserve(9);
-            this.data.setUint8(this.at, tag_base + 26);
+            this.data.setUint8(this.at, tag_base + 27);
             this.data.setUint32(this.at + 1, val / 4294967296);
             this.data.setUint32(this.at + 5, val % 4294967296);
             this.at += 9;
