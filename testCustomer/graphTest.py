@@ -1,6 +1,6 @@
 # Automated tests for graph drawing
 import sys
-from tests import *
+from serverRequest import *
 import time
 import random, string
 

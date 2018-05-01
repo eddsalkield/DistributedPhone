@@ -1,4 +1,4 @@
-from tests import *
+from serverRequest import *
 import sys
 import time
 
