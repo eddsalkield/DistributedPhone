@@ -4,24 +4,22 @@ import { Link } from 'react-router-dom';
 import './navigationBar.css';
 import {ClientState} from'../API.ts'
 
-var LoggedIn = true;
-var InputEmail = '';
-var InputPassword = '';
-var ValidInput = true;
-
-
-
-
 
 export default class navigationBar extends Component {
   constructor(props) {
     super(props);
     this.state = {
       Email: '', 
-      Password: ''    
+      Password: '',
+      LoggedIn:'' ,
+      haveLogIn: false, 
+      LogInAttempt: false, 
+      haveLogOut: false, 
+      LogOutAttempt: false,         
     };
     this.onSubmit = this.onSubmit.bind(this);
     this.LogoutonSubmit = this.LogoutonSubmit.bind(this);
+    this.GuestSubmit = this.GuestSubmit.bind(this);
 
   }
     EmailonChange = (e) => {
@@ -33,40 +31,90 @@ export default class navigationBar extends Component {
     }      
     onSubmit = (e) => {
       e.preventDefault();
-      InputEmail = this.state.Email;
-      InputPassword = this.state.Password;
-      LoggedIn = true
-      localStorage.setItem("email", InputEmail)
-      localStorage.setItem("password", InputPassword)
-      localStorage.setItem("loggedin", LoggedIn)
-
+      this.setState({LoggedIn:true})
+      this.setState({LogInAttempt: true})
+      this.setState({haveLogIn: false});
+      this.props.controller.login(this.state.Email, this.state.Password).then(
+        (login) => {
+            this.setState({
+                haveLogIn: true,
+            });
+        },
+        (error) => {
+            this.setState({
+                haveLogIn: true,
+                LogInError: error.message,
+            });
+        },
+      );
 
 
       console.log(
-          ". Email = " + InputEmail + 
-          ". Password = " + InputPassword +
-          ". LoggedIn = " + LoggedIn
+          ". Email = " + this.state.Email + 
+          ". Password = " + this.state.Password +
+          ". LoggedIn = " + this.state.LoggedIn
       )       
     }
 
     LogoutonSubmit = (e) => {
       e.preventDefault();
-      InputEmail = '';
-      InputPassword = '';
-      LoggedIn = false
-
-      localStorage.setItem("loggedin", LoggedIn);      
+      this.setState({LoggedIn:false})
+      this.setState({LogOutAttempt: true})
+      this.setState({haveLogOut: false});
+      this.props.controller.logout().then(
+        (logout) => {
+            this.setState({
+                haveLogOut: true,
+            });
+        },
+        (error) => {
+            this.setState({
+                haveLogOut: true,
+                LogOutError: error.message,
+            });
+        },)
 
       console.log(
-          ". Email = " + InputEmail + 
-          ". Password = " + InputPassword +
-          ". LoggedIn = " + LoggedIn
-      )         
+          ". Email = " + this.state.Email + 
+          ". Password = " + this.state.Password +
+          ". LoggedIn = " + this.state.LoggedIn
+      )        
+    }
+
+    GuestSubmit = (e) => {
+      e.preventDefault();
+      this.setState({LoggedIn:true})
+      this.setState({LogInAttempt: true})
+      this.setState({haveLogIn: false});
+      this.props.controller.loginGuest().then(
+        (login) => {
+            this.setState({
+                haveLogIn: true,
+            });
+        },
+        (error) => {
+            this.setState({
+                haveLogIn: true,
+                LogInError: error.message,
+            });
+        },
+      );
+
+
+      console.log(
+          ". LoggedIn = " + this.state.LoggedIn
+      )       
     }
 
 
   render() {
-    const { Email, Password} = this.state;
+    const { Email, Password, LoggedIn} = this.state;
+    var text='';
+    if (this.state.LoggedIn && this.state.LogInAttempt && this.state.haveLogIn){text = "Logged In"}
+    if (this.state.LogInError){text= this.state.LogInError}
+    if (this.state.LogOutError){text = this.state.LogOutError}
+    if (!this.state.LoggedIn && this.state.LogOutAttempt && this.state.haveLogOut){text = "Not Logged In"}
+
     return (
       <Navbar collapseOnSelect>
 
@@ -90,8 +138,16 @@ export default class navigationBar extends Component {
 
           <form  
           onSubmit={this.LogoutonSubmit}
+          class = "form-inline"
           >
             <Button type="submit">Log out</Button>  
+          </form>
+
+          <form  
+          onSubmit={this.GuestSubmit}
+          class = "form-inline"          
+          >
+            <Button type="submit">Log in as guest</Button>  
           </form>
 
           <form 
@@ -120,7 +176,11 @@ export default class navigationBar extends Component {
                 />                
               </FormGroup>{' '}
             </Navbar.Form>
+          <Navbar.Text>
+            {text}
+          </Navbar.Text>            
           </form>
+
         </Navbar.Collapse>
       </Navbar>
     )

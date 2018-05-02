@@ -36,11 +36,12 @@ export interface ClientStateInterface{
     ChargingOnly: boolean;
     AllowDataUsage: boolean; 
     ProjectChoiceID: string | null; 
-    IsLoggedIn: boolean; 
+    IsLoggedIn: boolean;
     login(email: string, password: string): Promise<void> ;
+    logout():Promise<void>;
     ListOfAllProjects(): Promise<Project[]>;
     ListOfMyProjects(): Promise<Project[]>;
-    NewProjectMyProjectsID( ID: string | null): void;
+    NewProjectMyProjectsID: string | null;
     SignUp(NewEmail: string,NewPassword: string,NewUserName: string): Promise<void>;
   
 }
@@ -51,9 +52,13 @@ export class ClientState implements ClientStateInterface{
     ChargingOnly = false
     AllowDataUsage = true
     ProjectChoiceID = "Bitcoin Mining"
-    IsLoggedIn = true
+    IsLoggedIn = true;
     login(TheEmail:string, ThePassword:string) :Promise<void> 
         { return Promise.resolve()}
+    loginGuest() : Promise<void>
+         {return Promise.resolve()}    
+    logout() :Promise<void> 
+        { return Promise.resolve()}    
     ListOfAllProjects() :Promise<Project[]> {return Promise.resolve([
         {
             Title : 'Project Title 1',
@@ -92,16 +97,12 @@ export class ClientState implements ClientStateInterface{
         }
       ])
     }
-    NewProjectMyProjectsID(NewFunProject:string): Promise<void> 
-    {return Promise.resolve()}
+    NewProjectMyProjectsID = "Fibonacci counter"
     SignUp(EmailToAdd:string, PasswordToAdd:string):Promise<void> 
     { return Promise.resolve()}
 
   
 }
 
-//var yeet = ClientState.ListOfMyProjects;
 
-//localStorage.setItem("test", "test")
-//var allOfTheProjects = ClientState.ListOfAllProjects.then();//I doubt this is correct
 

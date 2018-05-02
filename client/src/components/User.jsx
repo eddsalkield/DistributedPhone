@@ -8,11 +8,7 @@ import * as API from'../API.ts'
 
 
 
-var OnlyWhenCharging = true;
-var AllowDataUsage = true;
-var CurrentProjectID = '';
-var ProcessingPowerAllowance = '';
-var AddingProject = '';
+
 
 
 
@@ -56,18 +52,14 @@ export default class User extends Component {
 
       onSubmit = (e) => {
         e.preventDefault();
-        OnlyWhenCharging = this.state.OnlyWhenCharging;
-        AllowDataUsage = this.state.AllowDataUsage;
-        CurrentProjectID = this.state.CurrentProjectID;
-        ProcessingPowerAllowance = this.state.ProcessingPowerAllowance;
-        AddingProject = this.state.AddingProject; 
+
 
  
         console.log(
-            ". OnlyWhenCharging = " + OnlyWhenCharging + 
-            ". AllowDataUsage = " + AllowDataUsage + 
-            ". CurrentProjectID = " + CurrentProjectID +             
-            ". AddingProject = " + AddingProject
+            ". OnlyWhenCharging = " + this.state.OnlyWhenCharging + 
+            ". AllowDataUsage = " + this.state.AllowDataUsage + 
+            ". CurrentProjectID = " + this.state.CurrentProjectID +             
+            ". AddingProject = " + this.state.AddingProject
         )  
       }
 
@@ -113,7 +105,13 @@ export default class User extends Component {
     const {ProcessingPowerAllowance, CurrentProjectID, OnlyWithWifi, OnlyWhenCharging, AddingProject} = this.state;
 
     if (!this.props.controller.IsLoggedIn)
-        return (alert ("log in to accees this page"))
+        return (
+              <Alert bsStyle="warning">
+                <strong>Not Logged In</strong> Log in to access this page
+                <br/>
+                <Button onClick = {() => this.setState({Password:'',PasswordConfirm:'' })}>Try again </Button>
+              </Alert>);
+
 
     if(this.state.haveAllProjects && this.state.haveMyProjects && this.props.controller.IsLoggedIn) {
         var ProjectListIDs = [];

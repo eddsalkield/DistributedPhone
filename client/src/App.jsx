@@ -9,6 +9,7 @@ import API from './API.ts'
 
 
 
+ // ReactDOM.render(<Navbar controller = {controller}/>
 
 class App extends Component {
   constructor(props) {
@@ -18,14 +19,13 @@ class App extends Component {
     };
   } 
 
-  
   render() {
     //let testpassword = this.props.controller.ChargingOnly;
     return (
       <Router>
         <div>
-          <Navbar/>
-          <Route exact path="/" component={Home} />
+          <Navbar controller = {this.props.controller}/>
+          <Route exact path="/" render={(props) => <Home controller={this.props.controller} {...props} />} />
           <Route exact path="/User"  render={(props) => <User controller={this.props.controller} {...props} />}/>
           <Route exact path="/Customer"  render={(props) => <Customer controller={this.props.controller} {...props} />}/>          
         </div>
