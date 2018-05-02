@@ -1,5 +1,5 @@
 import sys, cbor, socket, os
-import time
+import serverRequest
 from tests import *
 
 # Pass the username and password as command-line arguments
@@ -17,20 +17,6 @@ with open("collatzClient", "rb") as f:
 collatz_fs = os.path.getsize("collatzClient")
 
 class TaskDistributor:
-
-    ## --- Work in Progress --- ### (won't compile)
-
-    # Areas for improvement:
-    #	-- Un-guess function names / interface with server (so it actually compiles)
-    #	-- Tidy up code
-    # 	-- Better distribution of task sizes / greater variety in interval length
-    #	-- Better storage of results (and actually doing something with them)
-    # 	-- Cap on the number of tasks put out there, with constant filling up:
-    #			At the moment we just put the entire range out there to be done by workers, 
-    #			then wait for them all to be computed. Although this isn't so bad as the blobs / 
-    #			tasks are quite small in size, it's not ideal. Instead we should put, say,
-    #			100 tasks out at a time, and replace them with new ones each time they done
-    
     
     # For now we just have a fixed range.
     # Starting at 'search_start', we have 'number_tasks' intervals of length 'fixed_range'
@@ -39,11 +25,9 @@ class TaskDistributor:
     fixed_range  = 100
     number_tasks = 1000
 
-    def __init__ (self, token, scanPeriod):
+    def __init__ (self, token):
             self.results = []   # List of (number, seqLength) pairs
-            self.TaskIDIntervals = []  # List of (taskID, (leftInterval, rightInterval)) pairs
             self.token = token
-            self.scanPeriod = scanPeriod  # How often should it scan the DB looking for finished blobs?
             self.initTasks()
             self.monitorBlobs()
 	
@@ -91,32 +75,17 @@ class TaskDistributor:
 
     def processResults(self, bytedata):
         # First decode the intervals from the data (16 bytes)
-        # Right interval isnt needed
-        # print(len(bytedata))
-        #    left = 0
-          #      right = 0
-        #    for i in range(0, 4):
-         #             left += bytedata[i]<<8*i
-         #   for i in range(0, 4):
-          #      right += bytedata[i]<<8*i
-          #  print(str(left) + " " + str(right))
-            
-       # for i in range(left, right):
-            # For now we have a constant size interval
-            # interval * 4 is number of bytes for all the sequence lengths
-        #    seqlength = 0
-         #   for j in range(0, interval * 4):
-          #      seqlength += bytedata[j]<<8*(j % 4)
-           # print((i, seqlength))
-
-           # needs updating
-            
-        seqlength = 0
-        for i in range(0, self.fixed_range * 4):
-            if (i % 4 == 0):
-                seqlength = 0
-            seqlength += bytedata[i]<<8*(i % 4)
-            print(seqlength)
+        print("size: " + str(len(bytedata)))
+	
+	left = int.from_bytes(bytedata[:16], 'little')
+	right = int.from_bytes(bytedata[16:32], 'little')
+	
+        print(str(left) + " " + str(right))
+        for i in range (0, right - left):
+            seqLength = 0
+            for j in range (0, 4): # Int sequence lengths
+                seqLength += bytedata[4 * i + j + 32]<<8*j	
+            print((left + i, seqLength)) 
 
     # When a worker finished a computation, it places a blob in the database along with metadata
     # indicating whether the task is finished. The customer will routinely scan (will it?) the database for
@@ -132,9 +101,7 @@ class TaskDistributor:
                 print ("Error when retrieving metadata")
                 print(allData)
                 continue
-
-            print(allData)
-                        
+		
             metaDict = allData["metadata"]
 
             # Convert all metadata out of CBOR form
@@ -152,10 +119,7 @@ class TaskDistributor:
                         blobval = data["blob"]
                         self.processResults(blobval)
                         dataRecieved += 1
-                        #### Can delete here ####
-        
-        # Sleep for a bit to not overload the database with calls
-        time.sleep(self.scanPeriod)
+			deleteBlob(self.token, project_name, blobid)
 
 ############### START HERE ################
 if __name__ == '__main__':
@@ -176,5 +140,4 @@ if __name__ == '__main__':
     token = tokenDict["token"]
 
     # Login successful
-    # Start Distributing Tasks, set scanning period to 2s
-    distributor = TaskDistributor(token, 1000)
+    distributor = TaskDistributor(token)
