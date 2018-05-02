@@ -1,6 +1,6 @@
+import time, calendar
 import sys, cbor, socket, os
-import serverRequest
-from tests import *
+from serverRequest import *
 
 # Pass the username and password as command-line arguments
 try:
@@ -28,6 +28,7 @@ class TaskDistributor:
     def __init__ (self, token):
             self.results = []   # List of (number, seqLength) pairs
             self.token = token
+            self.startTime = calendar.timegm(time.gmtime())
             self.initTasks()
             self.monitorBlobs()
 	
@@ -73,19 +74,45 @@ class TaskDistributor:
                 sys.exit()
             print("Successfully converted blob to task")
 
+    def plot(self, results):
+
+        graphs = { 
+           "highestResults": { 
+                "type": 'scatter',
+                "data": {
+                    "datasets": [{
+                        "label": 'Longest sequence length',
+                        "borderColour": 'rgb: (0, 255, 0)',
+                        "data": self.results,
+                        "showLine": True,
+                        "lineTension": 0.1
+                    }]
+                }
+           }
+        }
+
     def processResults(self, bytedata):
         # First decode the intervals from the data (16 bytes)
         print("size: " + str(len(bytedata)))
 	
-	left = int.from_bytes(bytedata[:16], 'little')
-	right = int.from_bytes(bytedata[16:32], 'little')
+        left = int.from_bytes(bytedata[:16], 'little')
+        right = int.from_bytes(bytedata[16:32], 'little')
 	
         print(str(left) + " " + str(right))
         for i in range (0, right - left):
             seqLength = 0
             for j in range (0, 4): # Int sequence lengths
                 seqLength += bytedata[4 * i + j + 32]<<8*j	
-            print((left + i, seqLength)) 
+
+        # Append highest results (lazy evaluation)
+        if (len(self.results) == 0 or self.results[-1] < seqLength):
+            # Calculate time passed
+            timePassed = calendar.timegm(time.gmtime()) - self.startTime
+            # Append result to the list of dictionaries (json charts wants in this format)
+            self.results.append({"x": timePassed, "y": seqLength})
+            # Construct JSON 
+            self.plot(self.results)
+
 
     # When a worker finished a computation, it places a blob in the database along with metadata
     # indicating whether the task is finished. The customer will routinely scan (will it?) the database for
@@ -119,7 +146,7 @@ class TaskDistributor:
                         blobval = data["blob"]
                         self.processResults(blobval)
                         dataRecieved += 1
-			deleteBlob(self.token, project_name, blobid)
+                        deleteBlob(self.token, project_name, blobid)
 
 ############### START HERE ################
 if __name__ == '__main__':
