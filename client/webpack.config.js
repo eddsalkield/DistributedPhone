@@ -5,6 +5,14 @@ distdir = path.resolve(__dirname, "dist");
 
 module.exports = function(env, argv) {
   if(!env) env = {dev: true, tests: true, utils: true};
+
+  let babel_env = ['@babel/preset-env'];
+
+  let babel_plugins = [
+    '@babel/plugin-proposal-class-properties',
+    '@babel/plugin-proposal-object-rest-spread',
+  ];
+
   function makeConfig(target, tsconfig) {
     return {
       target: target,
@@ -18,18 +26,43 @@ module.exports = function(env, argv) {
         rules: [
           {
             test: /\.tsx?$/,
+            exclude: [distdir, /node_modules/],
             use: {
               loader: 'ts-loader',
               options: {
                 configFile: tsconfig,
               },
             },
-            exclude: /node_modules/,
+          }, {
+            test: /\.js$/,
+            exclude: [distdir, /node_modules/],
+            use: [{
+              loader: 'babel-loader',
+              options: {
+                babelrc: false,
+                presets: [babel_env],
+                plugins: babel_plugins,
+              },
+            }],
+          }, {
+            test: /\.jsx$/,
+            exclude: [distdir, /node_modules/],
+            use: [{
+              loader: 'babel-loader',
+              options: {
+                babelrc: false,
+                presets: [babel_env, '@babel/preset-react'],
+                plugins: babel_plugins,
+              },
+            }],
+          }, {
+            test: /\.css$/,
+            use: ['style-loader', 'css-loader'],
           },
         ],
       },
       resolve: {
-        extensions: ['.tsx', '.ts', '.js'],
+        extensions: ['.tsx', '.ts', '.jsx', '.js'],
         alias: {
           'Dist': distdir,
           '@': path.resolve(__dirname, 'src'),
@@ -49,7 +82,7 @@ module.exports = function(env, argv) {
 
   as_worker.entry["worker"] =  "./src/worker/worker.ts";
 
-  as_dom.entry["index"] =  "./src/index.ts";
+  as_dom.entry["index"] =  "./src/index.jsx";
   if(env.tests) {
     as_dom.entry["exec-test-rig"] = "./src/exec/test-rig.ts";
     as_dom.entry["server-test-rig"] = "./src/server-test-rig.ts";

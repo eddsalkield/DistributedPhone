@@ -5,6 +5,8 @@ from header import *
 from time import mktime
 from datetime import datetime
 
+import json
+
 global debug
 debug = True
 
@@ -14,7 +16,7 @@ def log(msg):
 
 # Generic Functions
 def getTime():
-    return mktime(datetime.now().timetuple())
+    return mktime(datetime.now().timetuple())*1000
 
 
 # Checks whether the session is currently active
@@ -180,6 +182,9 @@ class RootServer:
         except Exception:
             return errormsg("Invalid inputs")
 
+        if not (type(blob) is bytes and type(metadata) is bytes):
+            return errormsg("Invalid blob or metadata type - should be bytes")
+
         if not checkSessionActive(token):
             return errormsg("Session expired or invalid token in logout. Please try again.")
         
@@ -205,7 +210,7 @@ class RootServer:
         try:
             token = str(body["token"])
             pname = str(body["pname"])
-            blobID = int(body["blobID"])
+            blobID = str(body["blobID"])
         except Exception:
             return errormsg("Invalid inputs")
 
@@ -237,7 +242,7 @@ class RootServer:
             pname = str(body["pname"])
             blobIDs = []
             for i, blob in enumerate(body["blobIDs"]):
-                blobIDs.append(int(blob))
+                blobIDs.append(str(blob))
         except Exception:
             return errormsg("Invalid inputs")
 
@@ -265,7 +270,7 @@ class RootServer:
         try:
             token = str(body["token"])
             pname = str(body["pname"])
-            name = int(body["name"])
+            name = str(body["name"])
         except Exception:
             return errormsg("Invalid inputs")
 
@@ -292,7 +297,7 @@ class RootServer:
         try:
             token = str(body["token"])
             pname = str(body["pname"])
-            blobID = int(body["blobID"])
+            blobID = str(body["blobID"])
         except Exception:
             return errormsg("Invalid inputs")
 
@@ -362,19 +367,24 @@ class RootServer:
             return errormsg("Session expired or invalid token in logout. Please try again.")
 
 
+
         for pname, project in tasks.items():
             for taskID, task in project.items():
                 # Construct metadatas
-                meta = {
+                meta = cbor.dumps({
                     "result": True,
                     "taskID": taskID,
                     "control": b'',
                     "blobs": [],
                     "blobs_n": 0
-                }
+                })
 
                 results = task["results"]
-                (succ, msg) = database.sendTasks(pname, int(taskID), results, [meta]*len(results), username, task["status"])
+                for b in results:
+                    if not type(b) is bytes:
+                        return errormsg("Tasks were not of type bytes")
+
+                (succ, msg) = database.sendTasks(pname, taskID, results, [meta]*len(results), username, task["status"])
                 if not succ:
                     return errormsg("Database error: " + msg)
 
@@ -395,48 +405,30 @@ class RootServer:
 
     #pname, precision
     @cherrypy.expose
-    def getGraphs(self):
+    def getGraphs(self, pname, prec):
         # Get request body
         try:
-            body = cbor.loads(cherrypy.request.body.read())
+            prec = int(prec)
+            pname = str(pname)
         except Exception:
-            return errormsg("Incorrectly encoded body")
-
-        # Sanity check inputs, check access level
-        try:
-            pname = str(body["pname"])
-            prec = str(body["precision"])
-        except Exception:
-            return errormsg("Invalid inputs")
+            return errormsg("Invalid input types.")
 
         try:
             description = database.projects[pname]["description"]
         except Exception:
             return errormsg("Project does not exist.")
 
-        # Convert to the correct precision
-        p = {
-            's': 1,
-            'm': 60,
-            'h': 60*60,
-            'd': 24*60*60,
-            'w': 7*24*60*60
-        }
-
-        if prec not in p.keys():
-            return errormsg("Invalid precision level.")
-
         (succ, graphs) = database.getGraphs(pname)
         if not succ:
             return errormsg("Database error: " + graphs)
 
-        if prec != 's':
+        if prec > 1:
             graphs2 = {}
             for name, data in graphs.items():
                 newdata = []
                 prevtime = 0
                 for (timecode, datum) in data:
-                    t = timecode - (timecode % p[prec])
+                    t = timecode - (timecode % prec)
                     if t == prevtime:
                         newdata = newdata[:-1]
                     newdata.append(tuple((t, datum)))
@@ -447,7 +439,7 @@ class RootServer:
         else:
             graphs2 = graphs
 
-        return cbor.dumps({'success': True, 'error': '', "graphs": graphs2, "description": description})
+        return json.dumps({'success': True, 'error': '', "graphs": graphs2, "description": description})
         
 
 if __name__ == '__main__':

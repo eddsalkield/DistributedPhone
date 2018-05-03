@@ -1,4 +1,4 @@
-from tests import *
+from serverRequest import *
 import sys
 import time
 
@@ -31,7 +31,7 @@ if (not success):
     sys.exit()
 
 token = dataLogin["token"]
-(success, data) = createNewProject(token, projectName, "test1")
+(success, data) = createNewProject(token, "Project", "test1")
 
 (success, dataLogout) = logout(token)
 if (success):
