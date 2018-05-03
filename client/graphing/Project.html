@@ -13,6 +13,10 @@
 <canvas id="workers"></canvas>
 <canvas id="tasks"></canvas>
 
+<div id="customGraphs">
+<p>This is where custom graphs go</p>
+</div>
+
 <style>overflow:hidden;</style>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 
@@ -103,13 +107,14 @@ var pname = hrefArray[hrefArray.length-1].split(".")[0];
 var precision = 1;
 
 // Handling custom graphs
-var customGraphs = [];
+var customGraphs = new Map();
 
 
 function liveGraphStart(t) {
 	getCustomGraphs();
 	getGraphs();
 	window.setInterval(function() {
+		getCustomGraphs();
 		getGraphs();
 	}, t);
 }
@@ -119,36 +124,88 @@ var URL = "../api/getGraphs?pname=" + pname + "&prec=" + precision;
 function getCustomGraphs() {
 	$.post(URL + "&kind=customGraphs", function (data) {
 		var response = JSON.parse(data);
-		alert("Custom graph response: " + data);
-		
-		alert("Test");
-		response.graphs.forEach(function(value, key, map){
-			alert("key: " + key + ", value: " + value);
+		console.log("Custom graph response: " + data);
+
+		Object.keys(response.graphs).forEach(function(key) {
+			var value = response.graphs[key];
+			createCustomGraph(key, value);
 		})
-		
-	
 	})
+}
+
+function createCustomGraph(gname, gdict) {
+	var div = document.getElementById("graph-" + gname);
+	
+	var customChart = customGraphs.get(gname);
+	if (customChart) {
+		// If it does exist, amend the graph
+		var title = div.getElementsByTagName("h2")[0];
+		customChart.config = gdict;
+	
+	} else {
+		// If it doesn't exist, create a new graph
+		var loc = document.getElementById("customGraphs");
+		div = document.createElement("div");
+		div.id = "graph-" + gname;
+		loc.appendChild(div);
+
+		var title = document.createElement("h2");
+		div.appendChild(title);
+
+		var graphDOM = document.createElement("canvas");
+		div.appendChild(graphDOM);
+		customChart = new Chart(graphDOM.getContext('2d'), gdict);
+
+		customGraphs.set(gname, customChart);
+
+	}
+	// Fill in data
+	title.innerHTML = gname;
+	customChart.update(0);
 }
 
 function getGraphs() {
 	$.post(URL + "&kind=standardGraphs", function (data) {
 		var response = JSON.parse(data);
 		console.log(data);
+		console.log("scatterChart data");
+		console.log(scatterChart);
 
 		// Update workers chart
 		scatterChart.data.datasets[1].data = response.graphs.activeWorkers;
 		scatterChart.data.datasets[0].data = response.graphs.totalWorkers;
+		// Flatline to present time
+		flatLine(scatterChart.data.datasets[0].data);
+		flatLine(scatterChart.data.datasets[1].data);
 
-		// Update
+		// Update task chart
 		taskChart.data.datasets[0].data = response.graphs.tasksCompleted;
 		taskChart.data.datasets[1].data = response.graphs.tasksRefused;
 		taskChart.data.datasets[2].data = response.graphs.tasksFailed;
 
+		// Flatline to present time
+		flatLine(taskChart.data.datasets[0].data);
+		flatLine(taskChart.data.datasets[1].data);
+		flatLine(taskChart.data.datasets[2].data);
+
+		
 		desc.innerHTML = response.description;
 
 		scatterChart.update();
+		taskChart.update();
 
 	});
+}
+
+function flatLine(data) {
+	var d = new Date();
+	// Update to current time only if falling behind
+	if (d.getTime() > data[data.length-1].x) {
+		var currentPoint = {};
+		currentPoint.x = d.getTime();
+		currentPoint.y = data[data.length-1];
+		data.push(currentPoint);
+	}
 }
 
 liveGraphStart(1000);

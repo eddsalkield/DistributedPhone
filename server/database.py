@@ -95,9 +95,13 @@ def deleteSession(data, kind):
     elif kind == "username":
         result = False
         for i, (token, sesh) in enumerate(sessions.items()):
+            # If the user curently has an active session, destroy the session
             if sesh["username"] == data:
                 result = True
                 del sessions[token]
+                # Update graphs that this user is no longer active
+                for pname in users[kind]["issuedTasks"]:
+                    changeGraph(pname, "activeWorkers", -1)
                 break
 
         return result
