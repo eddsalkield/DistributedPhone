@@ -107,6 +107,7 @@ var customGraphs = [];
 
 
 function liveGraphStart(t) {
+	getCustomGraphs();
 	getGraphs();
 	window.setInterval(function() {
 		getGraphs();
@@ -118,10 +119,15 @@ var URL = "../api/getGraphs?pname=" + pname + "&prec=" + precision;
 function getCustomGraphs() {
 	$.post(URL + "&kind=customGraphs", function (data) {
 		var response = JSON.parse(data);
-		console.log("Custom graph response: " + data)
+		alert("Custom graph response: " + data);
 		
-		response.values()
+		alert("Test");
+		response.graphs.forEach(function(value, key, map){
+			alert("key: " + key + ", value: " + value);
+		})
+		
 	
+	})
 }
 
 function getGraphs() {

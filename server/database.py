@@ -310,6 +310,7 @@ def updateCustomGraphs(graphsData, pname):
         return (False, "Invalid project name")
 
     # Check if graph data of the correct format
+    """
     valid = True
     for gname, gdict in graphsData.items():
         valid = valid and type(gname) is str
@@ -320,7 +321,7 @@ def updateCustomGraphs(graphsData, pname):
         valid = valid and type(gdict["time"]) is bool
         valid = valid and type(gdict["type"]) is str
 
-        for lname, ldict in gdict["keys"]:
+        for lname, ldict in gdict["keys"].items():
             valid = valid and type(lname) is str
             
             # Test that colour is in correct format
@@ -331,13 +332,13 @@ def updateCustomGraphs(graphsData, pname):
             valid = valid and type(ldict["line"]) is bool
 
             # Test validity of data
-            for point in data:
+            for point in ldict["data"]:
                 valid = valid and type(point["x"]) is int
                 valid = valid and type(point["y"]) is int
 
     if not valid:
         return (False, "graphsData has invalid format")
-
+    """
 
     # Save the new custom graph
     projects[pname]["graphing"]["customGraphs"] = graphsData

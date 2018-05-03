@@ -459,7 +459,7 @@ class RootServer:
         try:
             token = str(body["token"])
             pname = str(body["pname"])
-            customGraphs = body["pname"]
+            customGraphs = body["customGraphs"]
         except Exception:
             return errormsg("Invalid inputs")
 
@@ -469,7 +469,7 @@ class RootServer:
         if not checkSessionActive(token):
             return errormsg("Session expired or invalid token in logout. Please try again.")
 
-        (succ, err) = database.updateCustomGraphs(graphsData)
+        (succ, err) = database.updateCustomGraphs(customGraphs, pname)
         if not succ:
             return errormsg("Database error: " + err)
 
