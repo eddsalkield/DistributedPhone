@@ -28,7 +28,7 @@ export default class MockAPI implements api.WorkProvider {
         "MockAPI/results_dup"
     ).attach(this.st);
 
-    public readonly blobs = new Map<string, ArrayBuffer>();
+    public readonly blobs = new Map<string, Uint8Array>();
     public readonly tasks = new Deque<api.Task>();
     public readonly results = new Map<string, api.TaskResult>();
 
@@ -73,7 +73,7 @@ export default class MockAPI implements api.WorkProvider {
         });
     }
 
-    public getBlob(id: string, expected_size: number): Promise<ArrayBuffer> {
+    public getBlob(id: string, expected_size: number): Promise<Uint8Array> {
         return new Promise((resolve, reject) => {
             const data = this.blobs.get(id);
             if(data) resolve(data.slice(0));

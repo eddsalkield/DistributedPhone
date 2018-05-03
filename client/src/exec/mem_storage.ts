@@ -2,7 +2,7 @@ import * as err from "@/err";
 import {Ref, Storage} from "./storage";
 
 export default class MemStorage implements Storage {
-    public readonly blobs: Map<string, ArrayBuffer>;
+    public readonly blobs: Map<string, Uint8Array>;
 
     constructor() {
         this.blobs = new Map();
@@ -17,10 +17,10 @@ export default class MemStorage implements Storage {
         }));
     }
 
-    public get(id: string): Promise<ArrayBuffer> {
+    public get(id: string): Promise<Uint8Array> {
         return new Promise((resolve, reject) => {
             const bl = this.blobs.get(id);
-            if(bl) resolve(bl.slice(0));
+            if(bl) resolve(new Uint8Array(bl));
             else reject(new err.State("Blob not found", {blob_id: id}));
         });
     }
@@ -34,9 +34,7 @@ export default class MemStorage implements Storage {
 
     public set(id: string, data: Uint8Array): Promise<void> {
         return new Promise((resolve, reject) => {
-            const bl = new ArrayBuffer(data.byteLength);
-            new Uint8Array(bl).set(data);
-            this.blobs.set(id, bl);
+            this.blobs.set(id, new Uint8Array(data));
             resolve();
         });
     }

@@ -16,11 +16,11 @@ declare type Buffer = any;
 const fs = require('fs');
 
 class NodeExecutor extends Executor {
-    public readBlob(blob: workapi.Ref): Promise<ArrayBuffer> {
+    public readBlob(blob: workapi.Ref): Promise<Uint8Array> {
         return new Promise((resolve, reject) => {
             fs.readFile(blob.id, (err: Error, buf: Buffer) => {
                 if(err) reject(err);
-                else resolve(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length));
+                else resolve(new Uint8Array(buf.buffer, buf.byteOffset, buf.length));
             });
         });
     }

@@ -8,6 +8,7 @@
   "include": [
     "./src/index.ts",
     "./src/exec/tests/*.ts",
-    "./src/exec/test-rig.ts"
+    "./src/exec/test-rig.ts",
+    "./src/server-test-rig.ts"
   ]
 }

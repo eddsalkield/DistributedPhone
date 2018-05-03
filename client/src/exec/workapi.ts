@@ -6,12 +6,12 @@ export type Ref = Ref;
 
 export interface InWork {
     program: Ref;
-    control: ArrayBuffer;
+    control: Uint8Array;
     data: Ref[];
 }
 
 export interface InControl {
-    get_blob?: [string, ArrayBuffer];
+    get_blob?: [string, Uint8Array];
 }
 
 export interface In {
@@ -20,7 +20,7 @@ export interface In {
 }
 
 export interface OutResult {
-    data: ArrayBuffer[];
+    data: Uint8Array[];
 }
 
 export interface OutError {
