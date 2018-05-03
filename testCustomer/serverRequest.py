@@ -201,3 +201,16 @@ def getProjectsList():
 
     data = cbor.loads(r.content)
     return (data["success"] and data["error"] == "", data)
+
+def updateGraphs(token, graphsCBOR, pname):
+    r = requests.post("http://" + SERVER_IP + "/updateCustomGraphs", data = cbor.dumps(
+    {   "token": token,
+        "pname": pname,
+        "customGraphs": graphsCBOR
+    }))
+
+    if r.status_code != 200:
+        return (False, r.text)
+
+    data = cbor.loads(r.content)
+    return (data["success"] and data["error"] == "", data)
