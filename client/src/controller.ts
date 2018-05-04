@@ -527,7 +527,9 @@ export class UIState implements ui_api.ClientStateInterface {
     }
 
     public login(username: string, password: string): Promise<void> {
-        return this.ctl.login(username, password);
+        return this.ctl.login(username, password).then(() => {
+            this.ctl.startExec();
+        });
     }
     public loginGuest(): Promise<void> {
         return Promise.reject(new err.Runtime("Not implemented"));
@@ -535,6 +537,7 @@ export class UIState implements ui_api.ClientStateInterface {
     public logout(): Promise<void> {
         try {
             this.ctl.logout();
+            this.ctl.resetExec();
             return Promise.resolve();
         } catch(e) {
             return Promise.reject(e);
