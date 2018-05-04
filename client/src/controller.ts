@@ -532,7 +532,27 @@ export class UIState implements ui_api.ClientStateInterface {
         });
     }
     public loginGuest(): Promise<void> {
-        return Promise.reject(new err.Runtime("Not implemented"));
+        let guest_creds = window.localStorage.guest_creds;
+        let ix: number;
+        if(guest_creds === undefined || (ix = guest_creds.indexOf(":")) === -1) {
+            const alphabet = "abcdefghijklmnopqrstuvwxyz";
+
+            let user = "guest-";
+            for(let i = 0; i < 10; i++) {
+                user += alphabet[Math.floor(Math.random() * alphabet.length)];
+            }
+            user += "@invalid";
+
+            let password = "";
+            for(let i = 0; i < 40; i++) {
+                password += alphabet[Math.floor(Math.random() * alphabet.length)];
+            }
+
+            window.localStorage.guest_creds = user + ":" + password;
+            return this.SignUp(user, password);
+        }
+
+        return this.login(guest_creds.substr(0, ix), guest_creds.substr(ix+1));
     }
     public logout(): Promise<void> {
         try {
