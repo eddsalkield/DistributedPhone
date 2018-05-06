@@ -11,7 +11,7 @@ export default class navigationBar extends Component {
     this.state = {
       Email: '', 
       Password: '',
-      LoggedIn:'' ,
+      LoggedIn:false ,
       haveLogIn: false, 
       LogInAttempt: false, 
       haveLogOut: false, 
@@ -49,11 +49,7 @@ export default class navigationBar extends Component {
       );
 
 
-      console.log(
-          ". Email = " + this.state.Email + 
-          ". Password = " + this.state.Password +
-          ". LoggedIn = " + this.state.LoggedIn
-      )       
+     
     }
 
     LogoutonSubmit = (e) => {
@@ -65,20 +61,17 @@ export default class navigationBar extends Component {
         (logout) => {
             this.setState({
                 haveLogOut: true,
+                LoggedIn: false
             });
         },
         (error) => {
             this.setState({
                 haveLogOut: true,
                 LogOutError: error.message,
+                LoggedIn: false
             });
         },)
-
-      console.log(
-          ". Email = " + this.state.Email + 
-          ". Password = " + this.state.Password +
-          ". LoggedIn = " + this.state.LoggedIn
-      )        
+      
     }
 
     GuestSubmit = (e) => {
@@ -100,10 +93,7 @@ export default class navigationBar extends Component {
         },
       );
 
-
-      console.log(
-          ". LoggedIn = " + this.state.LoggedIn
-      )       
+     
     }
 
 
@@ -114,6 +104,7 @@ export default class navigationBar extends Component {
     if (this.state.LogInError){text= this.state.LogInError}
     if (this.state.LogOutError){text = this.state.LogOutError}
     if (!this.state.LoggedIn && this.state.LogOutAttempt && this.state.haveLogOut){text = "Not Logged In"}
+    console.log( ". Email = " + this.state.Email + ". Password = " + this.state.Password + ". LoggedIn = " + this.state.LoggedIn )
 
     return (
       <Navbar collapseOnSelect>
@@ -122,8 +113,8 @@ export default class navigationBar extends Component {
             <NavItem eventKey={0} componentClass={Link} href="/" to="/">
               Home
             </NavItem>
-            <Navbar.Toggle />
           </Nav>
+          <Navbar.Toggle />
         <Navbar.Collapse>
           <Nav>                     
             <NavItem eventKey={1} componentClass={Link} href="/User" to="/User">
@@ -136,50 +127,42 @@ export default class navigationBar extends Component {
             </NavItem>
           </Nav>
 
-          <form  
-          onSubmit={this.LogoutonSubmit}
-          class = "form-inline"
-          >
-            <Button type="submit">Log out</Button>  
-          </form>
 
-          <form  
-          onSubmit={this.GuestSubmit}
-          class = "form-inline"          
-          >
-            <Button type="submit">Log in as guest</Button>  
-          </form>
+          
+          <Navbar.Form pullRight >
+          <Button onClick= {this.LogoutonSubmit}>Log out</Button>
+          {'   '}
+          <Button onClick = {this.GuestSubmit}>Log in as guest</Button>
+          {'    '}
 
-          <form 
-            onSubmit={this.onSubmit}
-          >
-            <Navbar.Form pullRight >
-              <FormGroup>
-                <Nav>
-                  {/* <NavItem eventKey={4} componentClass={Link} href="/User" to="/User"> */}
-                    <Button type="submit">Log in</Button>
-                  {/* </NavItem> */}
-                </Nav>                                 
-                <FormControl 
+            <FormGroup>
+
+
+
+
+                               
+              <FormControl 
                 type="text" 
 
                 placeholder="Enter Email"
                 value = {this.state.Email}
                 onChange={this.EmailonChange}                
                 />
-                <FormControl 
+              <FormControl 
                 type="text" 
 
                 placeholder="Password" 
                 value = {this.state.Password}
                 onChange={this.PasswordonChange}                
-                />                
-              </FormGroup>{' '}
+                />    
+            <Button onClick = {this.onSubmit}>Log in</Button>                          
+            </FormGroup>{' '}
+
             </Navbar.Form>
           <Navbar.Text>
             {text}
           </Navbar.Text>            
-          </form>
+
 
         </Navbar.Collapse>
       </Navbar>

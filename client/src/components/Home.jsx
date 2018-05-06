@@ -45,7 +45,8 @@ function FieldGroup({ id, label, help, ...props }) {
         Password: '',
         PasswordConfirm: '',
         haveSignUp: false, 
-        SignUpAttempt: false,  
+        SignUpAttempt: false, 
+        SignUpError: null 
 
       };
       this.onSubmit = this.onSubmit.bind(this);

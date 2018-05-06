@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import { Link } from 'react-router-dom';
-import { Jumbotron, Grid, Button, PanelGroup, Panel, Checkbox, Radio, FormGroup, FormControl, ControlLabel } from 'react-bootstrap';
+import { Jumbotron, Grid, Button, PanelGroup, Panel, Checkbox, Radio, FormGroup, FormControl, ControlLabel, Alert } from 'react-bootstrap';
 import './User.css';
 import navigationBar from './navigationBar'
 import * as API from'../API.ts'
@@ -17,13 +17,17 @@ export default class User extends Component {
     constructor(props) {
         super(props);
         this.state = {
-             OnlyWhenCharging : '',
-             AllowDataUsage : '',
-             CurrentProjectID : '',
-             ProcessingPowerAllowance : '',  
+             OnlyWhenCharging : this.props.controller.ChargingOnly,
+             AllowDataUsage : this.props.controller.AllowDataUsage,
+             CurrentProjectID : this.props.controller.ProjectChoiceID,
              AddingProject: '', 
              haveAllProjects: false,
-             haveMyProjects: false,             
+             haveMyProjects: false, 
+             allprojectListError: null,
+             myprojectListError: null,
+             projects: null,
+             myprojects: null
+
         };
         this.refreshAllProjects(); 
         this.refreshMyProjects();         
@@ -64,7 +68,7 @@ export default class User extends Component {
       }
 
       refreshAllProjects() {
-        this.setState({haveAllProjects: false});
+        //this.setState({haveAllProjects: false});
         this.props.controller.ListOfAllProjects().then(
           (listOfAllProjects) => {
               this.setState({
@@ -82,7 +86,7 @@ export default class User extends Component {
       }
 
       refreshMyProjects() {
-        this.setState({haveMyProjects: false});
+        //this.setState({haveMyProjects: false});
         this.props.controller.ListOfMyProjects().then(
           (listOfMyProjects) => {
               this.setState({
@@ -109,7 +113,7 @@ export default class User extends Component {
               <Alert bsStyle="warning">
                 <strong>Not Logged In</strong> Log in to access this page
                 <br/>
-                <Button onClick = {() => this.setState({Password:'',PasswordConfirm:'' })}>Try again </Button>
+                <Button onClick = {() => window.location.reload()}>Try again </Button>
               </Alert>);
 
 

@@ -20,12 +20,15 @@ export default class Customer extends Component {
    super(props);
     this.state = {
       haveProjects: false,
+      projects: null,
+      projectListError: null
     };
     this.refreshProjects();
+    //
   }
 
   refreshProjects() {
-      this.setState({haveProjects: false});
+      //this.setState({haveProjects: false});
       console.log(this.props.controller.ListOfAllProjects());
       this.props.controller.ListOfAllProjects().then(
         (listOfAllProjects) => {
