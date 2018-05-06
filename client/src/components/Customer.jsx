@@ -21,6 +21,9 @@ export default class Customer extends Component {
     this.state = {
       haveProjects: false,
     };
+  }
+
+  componentDidMount() {
     this.refreshProjects();
   }
 

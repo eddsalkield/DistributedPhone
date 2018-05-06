@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import { Link } from 'react-router-dom';
-import { Jumbotron, Grid, Button, PanelGroup, Panel, Checkbox, Radio, FormGroup, FormControl, ControlLabel } from 'react-bootstrap';
+import { Jumbotron, Grid, Button, PanelGroup, Panel, Checkbox, Radio, FormGroup, FormControl, ControlLabel, Alert } from 'react-bootstrap';
 import './User.css';
 import navigationBar from './navigationBar'
 import * as API from'../API.ts'
@@ -25,10 +25,13 @@ export default class User extends Component {
              haveAllProjects: false,
              haveMyProjects: false,             
         };
-        this.refreshAllProjects(); 
-        this.refreshMyProjects();         
         this.onSubmit = this.onSubmit.bind(this); 
       } 
+
+      componentDidMount() {
+        this.refreshAllProjects();
+        this.refreshMyProjects();
+      }
       
       ChargingonChange = (e) => {
         this.setState({OnlyWhenCharging : e.target.value});
@@ -64,7 +67,7 @@ export default class User extends Component {
       }
 
       refreshAllProjects() {
-        this.setState({haveAllProjects: false});
+        this.setState({haveAllProjects: false, allprojectListError: undefined});
         this.props.controller.ListOfAllProjects().then(
           (listOfAllProjects) => {
               this.setState({
@@ -74,7 +77,6 @@ export default class User extends Component {
           },
           (error) => {
               this.setState({
-                  haveAllProjects: true,
                   allprojectListError: error.message,
               });
           },
@@ -82,7 +84,7 @@ export default class User extends Component {
       }
 
       refreshMyProjects() {
-        this.setState({haveMyProjects: false});
+        this.setState({haveMyProjects: false, myprojectListError: undefined});
         this.props.controller.ListOfMyProjects().then(
           (listOfMyProjects) => {
               this.setState({
@@ -92,7 +94,6 @@ export default class User extends Component {
           },
           (error) => {
               this.setState({
-                  haveMyProjects: true,
                   myprojectListError: error.message,
               });
           },
@@ -101,6 +102,7 @@ export default class User extends Component {
 
     
   render() {
+    console.log("Render", this.state);
 
     const {ProcessingPowerAllowance, CurrentProjectID, OnlyWithWifi, OnlyWhenCharging, AddingProject} = this.state;
 
@@ -112,6 +114,13 @@ export default class User extends Component {
                 <Button onClick = {() => this.setState({Password:'',PasswordConfirm:'' })}>Try again </Button>
               </Alert>);
 
+    if(this.state.allprojectListError) {
+        return <span class="errorMessage">{this.state.allprojectListError}</span>;
+    }
+
+    if(this.state.myprojectListError) {
+        return <span class="errorMessage">{this.state.myprojectListError}</span>;
+    }
 
     if(this.state.haveAllProjects && this.state.haveMyProjects && this.props.controller.IsLoggedIn) {
         var ProjectListIDs = [];
@@ -260,14 +269,6 @@ export default class User extends Component {
 
     </Grid>
     )
-
-    if(this.state.allprojectListError) {
-        return <span class="errorMessage">{this.state.allprojectListError}</span>;
-    }
-
-    if(this.state.myprojectListError) {
-        return <span class="errorMessage">{this.state.myprojectListError}</span>;
-    }
 
     return <img src="assets/loading.jpg" circle className="thephotophone"/>
 

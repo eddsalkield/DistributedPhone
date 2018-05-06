@@ -144,14 +144,14 @@ const enum StackKind {
 
 const msg_end = [
     "Data already read",
-    "End of array",
-    "End of map",
+    "Attempting to read past end of array",
+    "Attempting to read past end of map",
 ];
 
 const msg_more = [
-    "Can't end() main object",
-    "Array data remaining",
-    "Map data remaining",
+    "Can't close main object",
+    "Attempted to close array with data remaining",
+    "Attempted to close map with data remaining",
 ];
 
 class Stack {

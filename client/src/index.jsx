@@ -3,12 +3,23 @@ import "@/polyfill";
 import React, {Component} from 'react';
 import ReactDOM from 'react-dom';
 import App from './App';
-import {ClientState} from './API.ts'
 
+import {Controller, UIState} from "@/controller";
 
-let controller = new ClientState();
+const ctl = new Controller("http://35.178.90.246/api/");
 
-ReactDOM.render(<App controller = {controller}/>, document.getElementById('root'), );
+const uictl = new UIState(ctl);
 
+ReactDOM.render(<App controller = {uictl}/>, document.getElementById('root'));
 
+self.ctl = ctl;
 
+self.stop = () => {
+    ctl.resetExec().then(() => {
+        console.log("Stopped");
+    });
+};
+
+self.start = () => {
+    ctl.startExec();
+};

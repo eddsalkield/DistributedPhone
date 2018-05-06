@@ -1,9 +1,9 @@
 import "@/polyfill";
 
-import Controller from "@/controller";
+import {Controller} from "@/controller";
 
 const ctl = new Controller("http://35.178.90.246/api/");
-ctl.setProject("hvenev-collatz");
+ctl.setProject("Project");
 ctl.login("hvenev", "password");
 
 (self as any).ctl = ctl;
