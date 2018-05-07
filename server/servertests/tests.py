@@ -1,8 +1,7 @@
 ## Automated tests for the server
 import requests, cbor
 
-SERVER_IP = "35.178.90.246:8081"
-
+SERVER_IP = "35.178.90.246/api"
 def reboot():
     r = requests.post("http://" + SERVER_IP + "/reboot")
 
@@ -125,6 +124,7 @@ def getBlobMetadata(token, pname, blobIDs):
         return (False, r.text)
 
     data = cbor.loads(r.content)
+
     return (data["success"] and data["error"] == "", data)
     
 def getBlob(token, pname, name):
@@ -138,6 +138,8 @@ def getBlob(token, pname, name):
         return (False, r.text)
 
     data = cbor.loads(r.content)
+    data["blob"] = data["blob"]
+    data["metadata"] = cbor.loads(data["metadata"])
     return (data["success"] and data["error"] == "", data)
     
 def getTasks(token, pname, maxtasks):
@@ -178,10 +180,9 @@ def deleteBlob(token, pname, blobID):
     data = cbor.loads(r.content)
     return (data["success"] and data["error"] == "", data)
 
-def getGraphs(pname, precision):
+def getGraphs(pname):
     r = requests.post("http://" + SERVER_IP + "/getGraphs", data = cbor.dumps(
-        {   "pname": pname,
-            "precision": precision
+        {   "pname": pname
         }))
 
     if r.status_code != 200:
@@ -193,6 +194,19 @@ def getGraphs(pname, precision):
 
 def getProjectsList():
     r = requests.post("http://" + SERVER_IP + "/getProjectsList")
+
+    if r.status_code != 200:
+        return (False, r.text)
+
+    data = cbor.loads(r.content)
+    return (data["success"] and data["error"] == "", data)
+
+def updateGraphs(token, graphsCBOR, pname):
+    r = requests.post("http://" + SERVER_IP + "/updateCustomGraphs", data = cbor.dumps(
+    {   "token": token,
+        "pname": pname,
+        "customGraphs": graphsCBOR
+    }))
 
     if r.status_code != 200:
         return (False, r.text)
