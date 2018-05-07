@@ -379,7 +379,10 @@ class RootServer:
                     "blobs_n": 0
                 })
 
-                results = task["results"]
+                if "results" in task.keys():
+                    results = task["results"]
+                else:
+                    results = []
                 for b in results:
                     if not type(b) is bytes:
                         return errormsg("Tasks were not of type bytes")
