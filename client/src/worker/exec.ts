@@ -16,7 +16,7 @@ interface CompileCacheItem {
 export default class Executor {
     private abi1(
         in_program: WebAssembly.Module,
-        in_control: ArrayBuffer, in_data: workapi.Ref[]
+        in_control: Uint8Array, in_data: workapi.Ref[]
     ): Promise<workapi.OutResult> {
         const getString = (view: Uint8Array): string => {
             // if(view.some((c) => ((c < 32 && c != 10) || c == 127))) return " with invalid string.";
@@ -84,29 +84,29 @@ export default class Executor {
         inst.exports.pptw1_init();
 
         const addr_in = inst.exports.pptw1_malloc((3 + 2*in_data.length) * 4);
-        const addr_control = inst.exports.pptw1_malloc(in_control.byteLength);
+        const addr_control = inst.exports.pptw1_malloc(in_control.length);
 
         const pr_done: Array<Promise<void>> = [];
         for(let i2 = 0; i2 < in_data.length; i2 += 1) {
             const i = i2;
             pr_done.push(this.readBlob(in_data[i]).then((data) => {
-                const size = data.byteLength;
+                const size = data.length;
                 const addr = inst.exports.pptw1_malloc(size);
 
                 const view = new DataView(mem.buffer, addr_in + (3 + 2*i) * 4, 2 * 4);
                 view.setUint32(0, addr, true);
                 view.setUint32(4, size, true);
-                new Uint8Array(mem.buffer, addr, size).set(new Uint8Array(data));
+                new Uint8Array(mem.buffer, addr, size).set(data);
             }));
         }
 
         {
             const view = new DataView(mem.buffer, addr_in, 3 * 4);
             view.setUint32(0, addr_control, true);
-            view.setUint32(4, in_control.byteLength, true);
+            view.setUint32(4, in_control.length, true);
             view.setUint32(8, in_data.length, true);
         }
-        new Uint8Array(mem.buffer, addr_control, in_control.byteLength).set(new Uint8Array(in_control));
+        new Uint8Array(mem.buffer, addr_control, in_control.length).set(in_control);
 
         return Promise.all(pr_done).then(() => {
             this.onStarted();
@@ -129,8 +129,8 @@ export default class Executor {
                 const blob_addr = view.getUint32(0, true);
                 const blob_size = view.getUint32(4, true);
 
-                const blob = new ArrayBuffer(blob_size);
-                new Uint8Array(blob).set(new Uint8Array(mem.buffer, blob_addr, blob_size));
+                const blob = new Uint8Array(blob_size);
+                blob.set(new Uint8Array(mem.buffer, blob_addr, blob_size));
                 res.data.push(blob);
             }
 
@@ -174,7 +174,7 @@ export default class Executor {
         });
     }
 
-    public readBlob(blob: workapi.Ref): Promise<ArrayBuffer> {
+    public readBlob(blob: workapi.Ref): Promise<Uint8Array> {
         return Promise.reject(new Error("readBlob: Not implemented"));
     }
     public onPrint(msg: string) {}

@@ -28,13 +28,13 @@ export class TestTSDB implements stat.TSDB {
     }
 }
 
-export function arrBuf(data: number[]): ArrayBuffer {
-    const buf = new ArrayBuffer(data.length);
-    new Uint8Array(buf).set(data);
+export function arrBuf(data: number[]): Uint8Array {
+    const buf = new Uint8Array(data.length);
+    buf.set(data);
     return buf;
 }
 
-export function b64Buf(data: string): ArrayBuffer {
+export function b64Buf(data: string): Uint8Array {
     return strBuf(self.atob(data));
 }
 
@@ -97,7 +97,7 @@ enum CompareKind {
     OBJECT = 1,
     ARRAY = 2,
     MAP = 3,
-    ARRAY_BUFFER = 4,
+    TYPED_ARRAY = 4,
 }
 
 function typename(obj: any) {
@@ -108,13 +108,12 @@ function compareKind(obj: any) {
     if(typeof obj !== "object") return CompareKind.PRIMITIVE;
     if(obj instanceof Array) return CompareKind.ARRAY;
     if(obj instanceof Map) return CompareKind.MAP;
-    if(obj instanceof ArrayBuffer) return CompareKind.ARRAY_BUFFER;
+    if(obj instanceof Uint8Array) return CompareKind.TYPED_ARRAY;
     if(Object.getPrototypeOf(obj) === Object.prototype) return CompareKind.OBJECT;
     throw new Error(`Don't know how to compare ${typename(obj)}`);
 }
 
-function diffArrayBuffer(a1: ArrayBuffer, a2: ArrayBuffer): number {
-    const v1 = new Uint8Array(a1), v2 = new Uint8Array(a2);
+function diffTypedArray<T>(v1: ArrayLike<T>, v2: ArrayLike<T>): number {
     const l = Math.min(v1.length, v2.length);
     for(let i = 0; i < l; i += 1) {
         if(v1[i] !== v2[i]) return i;
@@ -196,16 +195,16 @@ export function compare(got: any, want: any, path: string) {
                 compare(got.get(p), want.get(p), path + "[" + JSON.stringify(p) + "]");
             }
         }
-    } else if(kind === CompareKind.ARRAY_BUFFER) {
-        if(!(got instanceof ArrayBuffer)) {
-            throw new Error(`got${path} !== want${path}: expected ArrayBuffer, got ${typename(got)}; ${got}`);
+    } else if(kind === CompareKind.TYPED_ARRAY) {
+        if(!(got instanceof Object.getPrototypeOf(want).constructor)) {
+            throw new Error(`got${path} !== want${path}: expected ${typename(want)}, got ${typename(got)}; ${got}`);
         }
 
-        const diff = diffArrayBuffer(got, want);
+        const diff = diffTypedArray(got, want);
         if(diff !== -1) {
             let msg = "";
-            if(got.byteLength !== want.byteLength) {
-                msg = `; got size ${got.byteLength}, want ${want.byteLength}`;
+            if(got.lenth !== want.lenth) {
+                msg = `; got size ${got.lenth}, want ${want.lenth}`;
             }
             throw new Error(`got${path} !== want${path}: difference at byte ${diff}${msg}`);
         }

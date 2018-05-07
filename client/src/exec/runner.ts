@@ -1,5 +1,6 @@
 import Deque from "double-ended-queue";
 
+import Backoff from "@/backoff";
 import * as err from "@/err";
 import * as stat from "@/stat";
 
@@ -25,7 +26,7 @@ class Task {
     public readonly project: string;
     public readonly program: Ref;
 
-    public in_control: ArrayBuffer;
+    public in_control: Uint8Array;
     public in_blobs: Ref[];
 
     public out_status?: TaskStatus;
@@ -36,7 +37,7 @@ class Task {
 
     constructor(
         id: string, project: string, program: Ref,
-        in_control: ArrayBuffer, in_blobs: Ref[],
+        in_control: Uint8Array, in_blobs: Ref[],
     ) {
         this.id = id;
         this.project = project;
@@ -103,7 +104,9 @@ export default class Runner {
     private tasks_sending = new Set<Task>();
 
     private requesting_tasks: boolean = false;
+    private readonly request_tasks_backoff = new Backoff(1000);
     private sending_results: boolean = false;
+    private readonly send_results_backoff = new Backoff(1000);
 
     /* If not stopping, `undefined`. Otherwise, callback indicating that the
      * Runner has stopped. Invoke through `partStop()`. */
@@ -241,7 +244,9 @@ export default class Runner {
 
         this.provider.getTasks().then((tasks) => {
             this.addTaskSet(tasks);
+            this.request_tasks_backoff.succeed();
         }).catch((e: Error) => {
+            this.request_tasks_backoff.fail();
             this.st.reportError(e);
         }).finally(() => {
             this.requesting_tasks = false;
@@ -258,7 +263,7 @@ export default class Runner {
         if(this.tasks_pending.size >= this.provider.tasks_pending_min) return;
         if(this.tasks_finished.length >= this.provider.tasks_finished_max) return;
         if(this.requesting_tasks) return;
-        self.setTimeout(this.requestTasks.bind(this), 0);
+        self.setTimeout(this.requestTasks.bind(this), this.request_tasks_backoff.value);
         this.requesting_tasks = true;
     }
 
@@ -348,6 +353,7 @@ export default class Runner {
                     this.repo.unpin(ref);
                 }
             });
+            this.send_results_backoff.succeed();
             this.report();
         }, (e: Error) => {
             for(const t of tasks) {
@@ -355,6 +361,7 @@ export default class Runner {
                 this.tasks_finished.insertFront(t);
             }
             this.st.reportError(e);
+            this.send_results_backoff.fail();
             this.report();
         }).finally(() => {
             this.sending_results = false;
@@ -372,7 +379,7 @@ export default class Runner {
         }
         if(this.tasks_finished.isEmpty()) return;
         if(this.sending_results) return;
-        self.setTimeout(this.sendResults.bind(this), 0);
+        self.setTimeout(this.sendResults.bind(this), this.send_results_backoff.value);
         this.sending_results = true;
     }
 
@@ -396,7 +403,7 @@ export default class Runner {
         this.taskFinish(t);
     }
 
-    private taskDone(t: Task, data: ArrayBuffer[]) {
+    private taskDone(t: Task, data: Uint8Array[]) {
         const refs: Ref[] = [];
         const promises = data.map((d) => {
             const [ref, pr] = this.repo.create(d);
@@ -417,7 +424,7 @@ export default class Runner {
         if(msg.get_blob !== undefined) {
             const ref = msg.get_blob;
             this.repo.read(ref).then((data) => {
-                ctl.sendControl({get_blob: [ref.id, data]}, [data]);
+                ctl.sendControl({get_blob: [ref.id, data]}, [data.buffer as ArrayBuffer]);
             }, (e) => {
                 ctl.kill(e);
             });
@@ -502,7 +509,7 @@ export default class Runner {
     private save_cur: Promise<void> = Promise.resolve();
     private save_next: Promise<void> | null = null;
     private save_timer: number | null = null;
-    private save(now: boolean): Promise<void> {
+    public save(now: boolean): Promise<void> {
         if(now && this.save_timer !== null) {
             clearTimeout(this.save_timer);
             this.save_timer = null;
@@ -563,7 +570,7 @@ export default class Runner {
         return t;
     }
 
-    private load(buf: ArrayBuffer) {
+    private load(buf: Uint8Array) {
         let d: rs.RunnerData;
         try {
             d = rs.loadState(buf);

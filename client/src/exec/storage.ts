@@ -14,7 +14,7 @@ export interface Storage {
     list(): Promise<Ref[]>;
 
     /* MUST RETURN A COPY! */
-    get(id: string): Promise<ArrayBuffer>;
+    get(id: string): Promise<Uint8Array>;
 
     /* Should do nothing if the blob doesn't exist. */
     delete(id: string): Promise<void>;

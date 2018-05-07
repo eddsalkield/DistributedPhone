@@ -9,7 +9,7 @@ export interface TaskData {
     project: string;
     program: Ref;
 
-    in_control: ArrayBuffer;
+    in_control: Uint8Array;
     in_blobs: Ref[];
 
     out_status?: string;
@@ -21,13 +21,7 @@ export interface RunnerData {
     tasks: TaskData[];
 }
 
-function copyBuf(d: Uint8Array): ArrayBuffer {
-    const r = new ArrayBuffer(d.length);
-    new Uint8Array(r).set(d);
-    return r;
-}
-
-export function loadState(data: ArrayBuffer): RunnerData {
+export function loadState(data: Uint8Array): RunnerData {
     const d: Partial<RunnerData> = {};
     const r = new cbor.Reader(data);
 
@@ -65,7 +59,7 @@ function readTaskData(r: cbor.Reader): TaskData {
         if(key === "id") d.id = r.string();
         else if(key === "project") d.project = r.string();
         else if(key === "program") d.program = readRef(r);
-        else if(key === "in_control") d.in_control = copyBuf(r.bytes());
+        else if(key === "in_control") d.in_control = cbut.own(r.bytes());
         else if(key === "in_blobs") d.in_blobs = cbut.readArray(r, readRef);
         else if(key === "out_status") d.out_status = r.string();
         else if(key === "out_data") d.out_data = cbut.readArray(r, readRef);

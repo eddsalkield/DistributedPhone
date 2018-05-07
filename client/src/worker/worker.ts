@@ -4,10 +4,10 @@ import * as workapi from "@/exec/workapi";
 
 import Executor from "./exec";
 
-const blobs_waiting = new Map<string, Array<(data: ArrayBuffer) => void>>();
+const blobs_waiting = new Map<string, Array<(data: Uint8Array) => void>>();
 
 class WorkerExecutor extends Executor {
-    public readBlob(blob: workapi.Ref): Promise<ArrayBuffer> {
+    public readBlob(blob: workapi.Ref): Promise<Uint8Array> {
         let arr = blobs_waiting.get(blob.id);
         if(!arr) {
             arr = [];
@@ -45,6 +45,7 @@ onmessage = (msg) => {
             return {error: {
                 "kind": "runtime",
                 "message": e.message,
+                "stack": e.stack,
             }};
         }).then((out: workapi.Out) => {
             postMessage(out, undefined);

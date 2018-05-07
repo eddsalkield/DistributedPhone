@@ -24,15 +24,19 @@ const kinds = [
     "break code",
 ];
 
+declare const TextEncoder: any;
+declare const TextDecoder: any;
+declare const console: any;
+
 const TAG_UINT = 0x00;
 const TAG_UINT_END = 0x20;
 const TAG_NINT = 0x20;
 const TAG_NINT_END = 0x40;
 const TAG_BYTES = 0x40;
-// const TAG_BYTES_EXT = 0x5f;
+const TAG_BYTES_EXT = 0x5f;
 const TAG_BYTES_END = 0x60;
 const TAG_STRING = 0x60;
-// const TAG_STRING_EXT = 0x7f;
+const TAG_STRING_EXT = 0x7f;
 const TAG_STRING_END = 0x80;
 const TAG_ARRAY = 0x80;
 const TAG_ARRAY_EXT = 0x9f;
@@ -102,31 +106,35 @@ function kindof(tag: number): Kind {
     throw new TypeError("Unsupported encoding");
 }
 
-function deutf8(data: Uint8Array): string {
-    if((self as any).TextDecoder) {
-        const dec = new TextDecoder("utf-8", {fatal: true});
-        return dec.decode(data);
+const deutf8 = (() => {
+    if(typeof TextDecoder !== "undefined") {
+        const the_decoder = new TextDecoder("utf-8", {fatal: true});
+        return (data: Uint8Array): string => the_decoder.decode(data);
     } else {
-        if(data.every((v) => v < 128)) return String.fromCodePoint(...data);
-        throw new TypeError("UTF-8 decoder not available");
+        return (data: Uint8Array): string => {
+            if(data.every((v) => v < 128)) return String.fromCodePoint(...data);
+            throw new TypeError("UTF-8 decoder not available");
+        };
     }
-}
+})();
 
-function enutf8(data: string): Uint8Array {
-    if((self as any).TextEncoder) {
-        const enc = new TextEncoder();
-        return enc.encode(data);
+const enutf8 = (() => {
+    if(typeof TextEncoder !== "undefined") {
+        const the_encoder = new TextEncoder();
+        return (data: string): Uint8Array => the_encoder.encode(data);
     } else {
-        const l = data.length;
-        const res = new Uint8Array(l);
-        for(let i = 0; i < l; i += 1) {
-            const cc = data.charCodeAt(i);
-            if(cc >= 128) throw new TypeError("UTF-8 encoder not available");
-            res[i] = cc;
-        }
-        return res;
+        return (data: string): Uint8Array => {
+            const l = data.length;
+            const res = new Uint8Array(l);
+            for(let i = 0; i < l; i += 1) {
+                const cc = data.charCodeAt(i);
+                if(cc >= 128) throw new TypeError("UTF-8 encoder not available");
+                res[i] = cc;
+            }
+            return res;
+        };
     }
-}
+})();
 
 const enum StackKind {
     OBJECT = 0,
@@ -136,14 +144,14 @@ const enum StackKind {
 
 const msg_end = [
     "Data already read",
-    "End of array",
-    "End of map",
+    "Attempting to read past end of array",
+    "Attempting to read past end of map",
 ];
 
 const msg_more = [
-    "Can't end() main object",
-    "Array data remaining",
-    "Map data remaining",
+    "Can't close main object",
+    "Attempted to close array with data remaining",
+    "Attempted to close map with data remaining",
 ];
 
 class Stack {
@@ -194,8 +202,12 @@ export class Reader {
     private at: number;
     private top: Stack;
 
-    constructor(data: ArrayBuffer) {
-        this.data = new DataView(data);
+    constructor(data: ArrayBuffer | Uint8Array) {
+        if(data instanceof ArrayBuffer) {
+            this.data = new DataView(data);
+        } else {
+            this.data = new DataView(data.buffer, data.byteOffset, data.byteLength);
+        }
         this.at = 0;
         this.top = new Stack(null, StackKind.OBJECT, 1);
     }
@@ -217,7 +229,7 @@ export class Reader {
         } else if(tag === 25) {
             this.at += 2;
         } else if(tag === 26) {
-            this.at += 2;
+            this.at += 4;
         } else if(tag === 27) {
             this.at += 8;
         } else {
@@ -237,7 +249,7 @@ export class Reader {
             return v;
         } else if(tag === 26) {
             const v = this.data.getUint32(this.at);
-            this.at += 2;
+            this.at += 4;
             return v;
         } else if(tag === 27) {
             let v = this.data.getUint32(this.at);
@@ -276,13 +288,12 @@ export class Reader {
 
     private _rBytes1(tag: number): Uint8Array {
         const len = this._rUint(tag);
-        const r = new Uint8Array(this.data.buffer, this.at, len);
+        const r = new Uint8Array(this.data.buffer, this.data.byteOffset + this.at, len);
         this.at += len;
         return r;
     }
 
-    private _rBytes(tag_base: number, tag: number): Uint8Array[] {
-        if(tag !== tag_base + 31) return [this._rBytes1(tag - tag_base)];
+    private _rBytesv(tag_base: number, tag: number): Uint8Array[] {
         const s: Uint8Array[] = [];
         while(true) {
             const t2 = this.data.getUint8(this.at);
@@ -295,47 +306,16 @@ export class Reader {
     }
 
     private _skipBytes(tag_base: number, tag: number): void {
-        if(tag !== tag_base + 31) this.at += this._rUint(tag - tag_base);
+        if(tag !== tag_base + 31) {
+            this.at += this._rUint(tag - tag_base);
+            return;
+        }
         while(true) {
             const t2 = this.data.getUint8(this.at);
             if(t2 === TAG_BREAK) break;
             if(t2 < tag_base || t2 >= tag_base + 31) throw new TypeError("Invalid encoding");
             this.at += this._rUint(tag - tag_base);
         }
-    }
-
-    private _rFloat16(): number {
-        const w = this.data.getUint16(this.at);
-        this.at += 2;
-
-        const exp = (w >> 11) & 31;
-        const mantissa = w & 2047;
-
-        let r: number;
-        if(exp === 31) {
-            if(mantissa !== 0) return NaN;
-            r = Infinity;
-        } else if(exp !== 0) {
-            r = (2048 + mantissa) * Math.pow(2, exp - 26);
-        } else {
-            r = mantissa * Math.pow(2, -25);
-        }
-
-        if(w & 32768) r = -r;
-
-        return r;
-    }
-
-    private _rFloat32(): number {
-        const r = this.data.getFloat32(this.at);
-        this.at += 4;
-        return r;
-    }
-
-    private _rFloat64(): number {
-        const r = this.data.getFloat64(this.at);
-        this.at += 8;
-        return r;
     }
 
     private _unknown(tag: number, expected: string): never {
@@ -373,7 +353,10 @@ export class Reader {
 
     private _bytes(tag: number): Uint8Array {
         if(!isBytes(tag)) return this._unknown(tag, "byte string");
-        const s = this._rBytes(TAG_BYTES, tag);
+        if(tag !== TAG_BYTES_EXT) {
+            return this._rBytes1(tag - TAG_BYTES);
+        }
+        const s = this._rBytesv(TAG_BYTES, tag);
         if(s.length === 0) return new Uint8Array();
         if(s.length === 1) return s[0];
         let l = 0;
@@ -390,7 +373,10 @@ export class Reader {
 
     private _string(tag: number): string {
         if(!isString(tag)) return this._unknown(tag, "text string");
-        return this._rBytes(TAG_STRING, tag).map(deutf8).join("");
+        if(tag !== TAG_STRING_EXT) {
+            return deutf8(this._rBytes1(tag - TAG_STRING));
+        }
+        return this._rBytesv(TAG_STRING, tag).map(deutf8).join("");
     }
 
     private _array(tag: number): number | undefined {
@@ -437,10 +423,34 @@ export class Reader {
     }
 
     private _float(tag: number) {
-        if(tag === TAG_FLOAT16) return this._rFloat16();
-        if(tag === TAG_FLOAT32) return this._rFloat32();
-        if(tag === TAG_FLOAT64) return this._rFloat64();
-        return this._unknown(tag, "floating-point number");
+        let r: number;
+        if(tag === TAG_FLOAT16) {
+            const w = this.data.getUint16(this.at);
+            this.at += 2;
+
+            const exp = (w >> 10) & 31;
+            const mantissa = w & 1023;
+
+            if(exp === 31) {
+                if(mantissa !== 0) return NaN;
+                r = Infinity;
+            } else if(exp !== 0) {
+                r = (1024 + mantissa) * Math.pow(2, exp - 25);
+            } else {
+                r = mantissa * Math.pow(2, -24);
+            }
+
+            if(w & 32768) r = -r;
+        } else if(tag === TAG_FLOAT32) {
+            r = this.data.getFloat32(this.at);
+            this.at += 4;
+        } else if(tag === TAG_FLOAT64) {
+            r = this.data.getFloat64(this.at);
+            this.at += 8;
+        } else {
+            return this._unknown(tag, "floating-point number");
+        }
+        return r;
     }
 
     private _number(tag: number) {
@@ -501,7 +511,7 @@ export class Reader {
         console.assert(t === null);
     }
 
-    public get hasNext(): boolean {
+    public hasNext(): boolean {
         return this._checkMaybeData();
     }
 
@@ -644,13 +654,15 @@ export class Reader {
         else if(isString(tag)) this._skipBytes(TAG_STRING, tag);
         else if(isArray(tag)) {
             this._array(tag);
-            while(this.hasNext) this.skip();
+            while(this.hasNext()) this.skip();
+            this.end();
         } else if(isMap(tag)) {
             this._map(tag);
-            while(this.hasNext) {
+            while(this.hasNext()) {
                 this.skip();
                 this.skip();
             }
+            this.end();
         } else if(isSimple(tag)) {
             if(tag === TAG_SIMPLE_EXT) this.at += 1;
         } else if(isFloat(tag)) {
@@ -796,7 +808,7 @@ export class Writer {
             this.at += 5;
         } else if(val < 18446744073709551616) {
             this._reserve(9);
-            this.data.setUint8(this.at, tag_base + 26);
+            this.data.setUint8(this.at, tag_base + 27);
             this.data.setUint32(this.at + 1, val / 4294967296);
             this.data.setUint32(this.at + 5, val % 4294967296);
             this.at += 9;
@@ -965,7 +977,7 @@ export class Writer {
     }
 
     public number(val: number) {
-        if(Math.abs(val) <= 9007199254740992) this.int(val);
+        if(val === Math.floor(val) && Math.abs(val) <= 9007199254740992) this.int(val);
         else this.float(val);
     }
 
