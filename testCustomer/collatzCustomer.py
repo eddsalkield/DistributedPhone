@@ -1,6 +1,7 @@
 import sys, cbor, socket, os
 import serverRequest
-from tests import *
+import time
+from serverRequest import *
 
 # Pass the username and password as command-line arguments
 try:
@@ -76,10 +77,10 @@ class TaskDistributor:
     def processResults(self, bytedata):
         # First decode the intervals from the data (16 bytes)
         print("size: " + str(len(bytedata)))
-	
-	left = int.from_bytes(bytedata[:16], 'little')
-	right = int.from_bytes(bytedata[16:32], 'little')
-	
+        
+        left = int.from_bytes(bytedata[:16], 'little')
+        right = int.from_bytes(bytedata[16:32], 'little')
+
         print(str(left) + " " + str(right))
         for i in range (0, right - left):
             seqLength = 0
@@ -119,7 +120,7 @@ class TaskDistributor:
                         blobval = data["blob"]
                         self.processResults(blobval)
                         dataRecieved += 1
-			deleteBlob(self.token, project_name, blobid)
+                        deleteBlob(self.token, project_name, blobid)
 
 ############### START HERE ################
 if __name__ == '__main__':

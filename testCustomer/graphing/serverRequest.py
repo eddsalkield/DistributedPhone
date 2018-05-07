@@ -1,7 +1,7 @@
 ## Automated tests for the server
 import requests, cbor
 
-SERVER_IP = "edd.venev.name/api"
+SERVER_IP = "35.178.90.246/api"
 
 def reboot():
     r = requests.post("http://" + SERVER_IP + "/reboot")
