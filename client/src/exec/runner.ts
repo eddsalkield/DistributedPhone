@@ -365,8 +365,10 @@ export default class Runner {
             this.report();
         }, (e: Error) => {
             for(const t of tasks) {
-                this.tasks_sending.delete(t);
-                this.tasks_finished.insertFront(t);
+                if(this.tasks_sending.has(t)) {
+                    this.tasks_sending.delete(t);
+                    this.tasks_finished.insertFront(t);
+                }
             }
             if(!(e instanceof err.Cancelled)) {
                 this.send_results_backoff.fail();
@@ -540,9 +542,10 @@ export default class Runner {
             this.save_next = null;
             this.save_cur = s;
             return this.repo.writeState("runner", rs.dumpState(this.data()));
+        }).catch((e: Error) => {
+            this.st.reportError(e);
         });
-        this.save_next = s;
-        return s;
+        return this.save_next = s;
     }
 
     public data(): rs.RunnerData {
@@ -645,6 +648,7 @@ export default class Runner {
             const cb = this._unpause;
             if(cb === null) return;
             this._unpause = null;
+            cb();
             return;
         }
     }

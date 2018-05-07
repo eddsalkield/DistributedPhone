@@ -8,19 +8,6 @@
 	padding: 0.5em;
 }
 
-.Projects-Project > input {
-	float: right;
-	width: 1em;
-	height: 1em;
-	border: 1px solid #ccc;
-}
-
-.Projects-Project > input:checked::after {
-	content: '';
-	display: block;
-	width: 0.75em;
-	height: 0.5em;
-	border-bottom: 1px solid #777;
-	border-left: 1px solid #777;
-	transform: rotate(-45deg);
+.Projects-Project > .InCheckbox > div > h4 {
+	padding: 0.5em;
 }
