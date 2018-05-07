@@ -93,7 +93,6 @@ export default class Login extends React.Component<Props, State> {
                     <InText type="email" name="email" desc="Email" />
                     <InText type="password" name="password" desc="Password" />
                     <InText type="password" name="password2" desc="Confirm Password" />
-                    <InText desc="Your mother's maiden name" />
                     <FormError error={this.state.signUpError} />
                     <Button type="submit">Sign Up</Button>
                     <Button type="button" onClick={this.onGuestLogin}>Enter as guest</Button>
