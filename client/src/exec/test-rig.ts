@@ -270,7 +270,7 @@ export function addRunner(the_api: api.WorkProvider) {
     const do_start = () => {
         but_stop.innerHTML = "Starting";
         but_stop.onclick = () => {};
-        Runner.create(st, the_api, the_storage).then((rv) => {
+        Runner.create(st, the_api, the_storage, "test-rig@invalid").then((rv) => {
             r = rv;
             but_stop.innerHTML = "Stop";
             but_stop.onclick = do_stop;

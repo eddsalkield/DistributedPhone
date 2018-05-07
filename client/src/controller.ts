@@ -5,6 +5,7 @@ import * as ui_api from "@/API";
 import * as cbor from "@/cbor";
 import * as cbut from "@/cbor-util";
 import * as err from "@/err";
+import * as obs from "@/obs";
 import * as stat from "@/stat";
 
 import IDBStorage from "@/exec/idb_storage";
@@ -18,7 +19,7 @@ class TSDB implements stat.TSDB {
     }
 
     public writeError(at: number, e: err.Data): void {
-        console.log(e);
+        console.error(e);
     }
 }
 
@@ -27,15 +28,8 @@ interface ReqOpts {
     expect_size?: number;
 }
 
-interface UserData {
-    readonly name: string;
-    readonly token: string;
-}
-
-interface Settings {
-    project: string | null;
-    my_projects: string[];
-}
+type Settings = ui_api.Settings;
+type Project = ui_api.Project;
 
 function parseResponse(data: ArrayBuffer, handlers: {[name:string]: ((r: cbor.Reader) => void) | undefined}): void {
     let success: boolean | undefined;
@@ -66,128 +60,47 @@ function parseResponse(data: ArrayBuffer, handlers: {[name:string]: ((r: cbor.Re
     }
 }
 
+const DEFAULT_SETTINGS: Settings = {
+    allow_mobile_data: false,
+    allow_on_battery: false,
+    projects: [],
+};
+
 export class Controller {
     public readonly stat_root: stat.Root;
 
-    public user: UserData | null = null;
-    public user_promise!: Promise<UserData>;
-    private on_login?: (data: UserData) => void;
-
-    public runner_promise!: Promise<Runner>;
-    private on_runner?: (runner: Promise<Runner>) => void;
-
-    private settings_update_promise!: Promise<void>;
-    private on_settings_update!: () => void;
-
-    private cfg: Settings = {
-        project: null,
-        my_projects: [],
-    };
+    public readonly user = new obs.Subject<User | null>();
 
     constructor(
         /* Base URL with trailing slash */
         public readonly url: string,
     ) {
         this.stat_root = new stat.Root(new TSDB());
-        this.newUserPromise();
-        this.newRunnerPromise();
-        this.newSettingsUpdatePromise();
 
-        const ls = window.localStorage;
-        if(ls.login_data !== undefined) {
-            this.on_login!(JSON.parse(ls.login_data));
+        const login_data = window.localStorage.login_data;
+        if(login_data === undefined) {
+            this.user.next(null);
+        } else {
+            this.user.next(User.fromJSON(this, login_data));
         }
+
+        obs.switchMap(this.user, (ud): obs.Observable<string | undefined> => {
+            if(ud === null) {
+                return obs.single(undefined);
+            } else {
+                return ud.as_json;
+            }
+        }).subscribe((v) => {
+            if(v) window.localStorage.login_data = v;
+            else delete window.localStorage.login_data;
+        }).start();
     }
 
-    private newUserPromise(): void {
-        this.user_promise = new Promise((resolve, reject) => {
-            this.on_login = (u) => {
-                this.user = u;
-                window.localStorage.login_data = JSON.stringify(u);
-                delete this.on_login;
-                resolve(u);
-            };
-        });
-    }
-
-    private newRunnerPromise(): void {
-        this.runner_promise = new Promise((resolve, reject) => {
-            this.on_runner = (r) => {
-                delete this.on_runner;
-                r.then((v) => {
-                    resolve(v);
-                }, reject);
-            };
-        });
-    }
-
-    private newSettingsUpdatePromise(): void {
-        this.settings_update_promise = new Promise((resolve, reject) => {
-            this.on_settings_update = () => {
-                this.newSettingsUpdatePromise();
-                resolve();
-            };
-        });
-    }
-
-    public onSettingsUpdate<T>(f: () => Promise<T>): Promise<T> {
-        return this.settings_update_promise.then(f);
-    }
-
-    public settingsUpdated(): void {
-        this.on_settings_update();
-    }
-
-    public getProject(): string | null {
-        return this.cfg.project;
-    }
-
-    public setProject(p: string | null): void {
-        if(this.cfg.project === p) return;
-        this.cfg.project = p;
-        this.settingsUpdated();
-    }
-
-    public getMyProjects(): string[] {
-        return Array.from(this.cfg.my_projects);
-    }
-
-    public setMyProjects(p: string[]): void {
-        this.cfg.my_projects = Array.from(p);
-        this.settingsUpdated();
-    }
-
-    public startExec(): void {
-        if(this.on_runner === undefined) return;
-        this.on_runner(IDBStorage.create(this.stat_root, "blob_storage").then((storage) => {
-            return Runner.create(this.stat_root, new WorkProvider(this), storage);
-        }));
-    }
-
-    public withUser<T>(f: (login: UserData) => Promise<T>): Promise<T> {
-        return this.user_promise.then(f);
-    }
-
-    public withToken<T>(f: (token: string) => Promise<T>): Promise<T> {
-        return this.withUser((l) => {
-            return f(l.token);
-        });
-    }
-
-    public withRunner<T>(f: (r: Runner) => Promise<T>): Promise<T> {
-        return this.runner_promise.then(f);
-    }
-
-    public resetExec(): Promise<void> {
-        if(this.on_runner !== undefined) {
-            return IDBStorage.delete("blob_storage");
-        }
-        return this.runner_promise.then((r) => {
-            this.newRunnerPromise();
-            return r.stop();
-        }).catch(() => {}).then(() => {
-            return IDBStorage.delete("blob_storage");
-        });
+    public reset(): Promise<void> {
+        return obs.first(this.user).then((u) => {
+            if(u !== undefined && u !== null) return u.logout();
+            else return Promise.resolve();
+        }).finally(() => IDBStorage.delete("blob_storage"));
     }
 
     public login(username: string, password: string): Promise<void> {
@@ -216,34 +129,12 @@ export class Controller {
                 throw new err.Validation("Server provided no token");
             }
 
-            if(this.on_login === undefined) {
-                throw new err.State("Already logged in");
-            }
-
-            this.on_login({
-                name: username,
-                token: tok,
-            });
+            this.user.next(new User(this, username, tok, DEFAULT_SETTINGS));
         });
     }
 
-    public logout(): void {
-        const ud = this.user;
-        if(ud === null) return;
-
-        delete window.localStorage.login_data;
-        this.user = null;
-        this.newUserPromise();
-
-        const req = new cbor.Writer();
-        req.map(1);
-        req.string("token");
-        req.string(ud.token);
-        req.end();
-
-        this.request("logout", {
-            data: req.done(),
-        });
+    public loggedOut(): void {
+        this.user.next(null);
     }
 
     public request(path: string, opts: ReqOpts): Promise<ArrayBuffer> {
@@ -328,7 +219,11 @@ class WorkProvider implements exec_api.WorkProvider {
     public save_timeout = 1000;
     public cache_max = 2.0e8;
 
-    constructor(private readonly ctl: Controller) {}
+    constructor(
+        private readonly ctl: Controller,
+        private readonly cfg: obs.Observable<Settings>,
+        private readonly token: string,
+    ) {}
 
     private request(path: string, opts: ReqOpts): Promise<ArrayBuffer> {
         return new Promise((resolve, reject) => {
@@ -352,16 +247,13 @@ class WorkProvider implements exec_api.WorkProvider {
         req.string(name.substr(0, ix));
         req.string("name");
         req.string(name.substr(ix + 1));
+        req.string("token");
+        req.string(this.token);
+        req.end();
 
-        return this.ctl.withToken((token) => {
-            req.string("token");
-            req.string(token);
-            req.end();
-
-            return this.request("getBlob", {
-                data: req.done(),
-                expect_size: expected_size,
-            });
+        return this.request("getBlob", {
+            data: req.done(),
+            expect_size: expected_size,
         }).then((data) => {
             let blob: Uint8Array | undefined;
             parseResponse(data, {
@@ -379,28 +271,25 @@ class WorkProvider implements exec_api.WorkProvider {
     }
 
     public getTasks(): Promise<exec_api.TaskSet> {
-        const project = this.ctl.getProject();
-        if(project === null) {
-            return this.ctl.onSettingsUpdate(() => {
-                return this.getTasks();
-            });
-        }
+        return obs.first(obs.filter(this.cfg, (c) => c.projects.length !== 0)).then((c) => {
+            if(c === undefined) return Promise.resolve({tasks: []});
+            const p = c.projects;
+            return this._getTasks(p[Math.floor(Math.random() * p.length)]);
+        });
+    }
 
+    private _getTasks(project: string): Promise<exec_api.TaskSet> {
         const req = new cbor.Writer();
         req.map(3);
         req.string("pname");
         req.string(project);
         req.string("maxtasks");
         req.number(500); // TODO: set to something proper.
-
-        return this.ctl.withToken((token) => {
-            req.string("token");
-            req.string(token);
-            req.end();
-
-            return this.request("getTasks", {
-                data: req.done(),
-            });
+        req.string("token");
+        req.string(this.token);
+        req.end();
+        return this.request("getTasks", {
+            data: req.done(),
         }).then((data): exec_api.TaskSet | Promise<exec_api.TaskSet> => {
             let taskIDs: string[] | undefined;
             let taskBlobs: Uint8Array[] | undefined;
@@ -486,106 +375,125 @@ class WorkProvider implements exec_api.WorkProvider {
             req.end();
         }
         req.end();
-
-        return this.ctl.withToken((token) => {
-            req.string("token");
-            req.string(token);
-            req.end();
-
-            return this.request("sendTasks", {
-                data: req.done(),
-            });
+        req.string("token");
+        req.string(this.token);
+        req.end();
+        return this.request("sendTasks", {
+            data: req.done(),
         }).then((data) => {
             parseResponse(data, {});
         });
     }
 }
 
-type ProjectMap = Map<string, ui_api.Project>;
+interface RunnerData {
+    readonly runner: Runner;
+    stop(): Promise<void>;
+}
 
-export class UIState implements ui_api.ClientStateInterface {
-    constructor(public readonly ctl: Controller) {}
+export class User implements ui_api.User {
+    public readonly projects = new obs.Cache<Map<string, Project>>();
+    public readonly settings: obs.Subject<Settings>;
+    public readonly as_json: obs.Observable<string>;
 
-    // TODO: implement
-    public get ChargingOnly() {
-        return false;
+    private runner_promise: Promise<RunnerData> | null = null;
+    private runner_stop_promise: Promise<void> = Promise.resolve();
+
+    constructor(
+        private readonly ctl: Controller,
+        public readonly username: string,
+        public readonly token: string,
+        settings: Settings,
+    ) {
+        this.settings = new obs.Subject(settings);
+
+        this.projects.attach(obs.refresh(
+            () => this.requestProjects(),
+            3600 * 1000
+        ));
+
+        this.as_json = new obs.Cache(obs.map(this.settings, (s) => {
+            return JSON.stringify({
+                "username": this.username,
+                "token": this.token,
+                "settings": {
+                    "allow_mobile_data": s.allow_mobile_data,
+                    "allow_on_battery": s.allow_on_battery,
+                    "projects": s.projects,
+                },
+            });
+        }));
+
+        this.startExec();
     }
-    public get AllowDataUsage() {
-        return true; // this.ctl.cfg.allow_mobile_data;
-    }
-    // TODO: decode name
-    public get NewProjectMyProjectsID() {
-        return "Fibonacci counter";
-    }
 
-
-    public get ProjectChoiceID() {
-        return this.ctl.getProject();
-    }
-    public get IsLoggedIn() {
-        return this.ctl.user !== null;
-    }
-
-    public login(username: string, password: string): Promise<void> {
-        return this.ctl.login(username, password).then(() => {
-            this.ctl.startExec();
-        });
-    }
-    public loginGuest(): Promise<void> {
-        let guest_creds = window.localStorage.guest_creds;
-        let ix: number;
-        if(guest_creds === undefined || (ix = guest_creds.indexOf(":")) === -1) {
-            const alphabet = "abcdefghijklmnopqrstuvwxyz";
-
-            let user = "guest-";
-            for(let i = 0; i < 10; i++) {
-                user += alphabet[Math.floor(Math.random() * alphabet.length)];
-            }
-            user += "@invalid";
-
-            let password = "";
-            for(let i = 0; i < 40; i++) {
-                password += alphabet[Math.floor(Math.random() * alphabet.length)];
-            }
-
-            window.localStorage.guest_creds = user + ":" + password;
-            return this.SignUp(user, password);
+    public static fromJSON(ctl: Controller, data: string): User {
+        const d = JSON.parse(data);
+        const settings = Object.assign({}, DEFAULT_SETTINGS);
+        const s2 = d["settings"];
+        if(s2) {
+            if(s2["allow_mobile_data"]) settings.allow_mobile_data = true;
+            if(s2["allow_on_battery"]) settings.allow_on_battery = true;
+            if(s2["projects"]) settings.projects = Array.from(s2["projects"]);
         }
-
-        return this.login(guest_creds.substr(0, ix), guest_creds.substr(ix+1));
+        return new User(ctl, d["username"], d["token"], settings);
     }
+
     public logout(): Promise<void> {
-        try {
-            this.ctl.logout();
-            this.ctl.resetExec();
-            return Promise.resolve();
-        } catch(e) {
-            return Promise.reject(e);
-        }
-    }
-
-    public SignUp(username: string, password:string): Promise<void> {
         const req = new cbor.Writer();
-        req.map(3);
-        req.string("username");
-        req.string(username);
-        req.string("password");
-        req.string(password);
-        req.string("accesslevel");
-        req.string("worker");
+        req.map(1);
+        req.string("token");
+        req.string(this.token);
         req.end();
 
-        return this.ctl.request("register", {
-            data: req.done(),
-        }).then((data) => {
-            parseResponse(data, {});
-            // Hope login succeeds.
-            return this.login(username, password);
+        this.settings.complete();
+
+        return Promise.all([
+            this.stopExec().catch((e) => this.ctl.stat_root.reportError(e)),
+            this.ctl.request("logout", {
+                data: req.done(),
+            }).then((data) => {
+                parseResponse(data, {});
+            }).catch((e) => this.ctl.stat_root.reportError(e)),
+        ]).then(() => {
+            this.ctl.loggedOut();
         });
     }
 
-    private requestProjects(): Promise<ProjectMap> {
-        const ud = this.ctl.user;
+    private startExec(): Promise<Runner> {
+        let pr = this.runner_promise;
+        if(pr === null) {
+            this.runner_promise = pr = this.runner_stop_promise.catch().then(
+                () => IDBStorage.create(this.ctl.stat_root, "blob_storage")
+            ).then((storage) => {
+                const wp = new WorkProvider(this.ctl, this.settings, this.token);
+                return Runner.create(this.ctl.stat_root, wp, storage, this.token).then((r) => {
+                    return {
+                        runner: r,
+                        stop() {
+                            return r.stop().finally(() => {
+                                storage.stop();
+                            });
+                        },
+                    };
+                });
+            });
+        }
+        return pr.then((rd) => rd.runner);
+    }
+
+    private stopExec(): Promise<void> {
+        const rpr = this.runner_promise;
+        if(rpr === null) return this.runner_stop_promise;
+        this.runner_promise = null;
+
+        return this.runner_stop_promise = rpr.then((r) => {
+            return r.stop();
+        });
+    }
+
+    private requestProjects(): Promise<Map<string, Project>> {
+        const ud = this.ctl.user.value;
         if(ud === null) return Promise.reject(new err.State("Not logged in"));
 
         const req = new cbor.Writer();
@@ -593,11 +501,10 @@ export class UIState implements ui_api.ClientStateInterface {
         req.string("token");
         req.string(ud.token);
         req.end();
-
         return this.ctl.request("getProjectsList", {
             data: req.done(),
         }).then((data) => {
-            const ps: ProjectMap = new Map();
+            const ps = new Map<string, Project>();
             parseResponse(data, {
                 "projects": (r) => {
                     r.map();
@@ -615,8 +522,9 @@ export class UIState implements ui_api.ClientStateInterface {
                         r.end();
 
                         ps.set(name, {
-                            Title: name,
-                            Description: desc,
+                            id: name,
+                            title: name,
+                            description: desc,
                         });
                     }
                     r.end();
@@ -627,63 +535,87 @@ export class UIState implements ui_api.ClientStateInterface {
         });
     }
 
-    private cached_projects?: ProjectMap;
-    private cached_projects_promise?: Promise<ProjectMap>;
-    private cached_projects_expiry: number = 0; // timestamp in milliseconds
-    // If not refresh, try returning soon (1 second if a request is already
-    // happening, immediately otherwise). If refresh, send a request unless one
-    // is pending.
-    private getProjects(refresh: boolean): Promise<ProjectMap> {
-        let pr = this.cached_projects_promise;
-        let cached = this.cached_projects;
-
-        if(cached !== undefined) {
-            const now = new Date().getTime();
-            if(now > this.cached_projects_expiry) {
-                cached = undefined;
-                delete this.cached_projects;
-            }
-        }
-
-        if(pr === undefined) {
-            if(!refresh && cached !== undefined) return Promise.resolve(cached);
-
-            pr = this.requestProjects().then((pmap) => {
-                delete this.cached_projects_promise;
-                this.cached_projects = pmap;
-                this.cached_projects_expiry = new Date().getTime() + 3600 * 1000;
-                return pmap;
-            }, (e) => {
-                delete this.cached_projects_promise;
-                throw e;
-            });
-
-            this.cached_projects_promise = pr;
-        }
-
-        if(!refresh && cached === undefined) return pr;
-
-        return Promise.race([pr, new Promise<ProjectMap>((resolve, reject) => {
-            setTimeout(() => {
-                resolve(cached);
-            }, 1000);
-        })]);
+    public updateSettingsF(f: (c: Settings) => Settings) {
+        this.settings.next(f(this.settings.value));
     }
 
-    public ListOfAllProjects(): Promise<ui_api.Project[]> {
-        return this.getProjects(true).then((ps) => {
-            return Array.from(ps.values());
+    public updateSettings(upd: Partial<Settings>): void {
+        this.updateSettingsF((c) => Object.assign({}, c, upd));
+    }
+
+    public setProjectOn(name: string): void {
+        this.updateSettingsF((c) => {
+            return Object.assign({}, c, {
+                projects: [name].concat(c.projects),
+            });
         });
     }
 
-    public ListOfMyProjects(): Promise<ui_api.Project[]> {
-        return this.getProjects(false).then((pmap) => {
-            const ps: ui_api.Project[] = [];
-            for(const pid of this.ctl.getMyProjects()) {
-                const p = pmap.get(pid);
-                if(p !== undefined) ps.push(p);
+    public setProjectOff(name: string): void {
+        this.updateSettingsF((c) => {
+            let proj = c.projects;
+            const ix = proj.indexOf(name);
+            if(ix === -1) return c;
+            proj = Array.from(proj);
+            proj.splice(ix, 1);
+            return Object.assign({}, c, {
+                projects: proj,
+            });
+        });
+    }
+}
+
+export class UIState implements ui_api.ClientState {
+    public get user() {
+        return this.ctl.user;
+    }
+
+    constructor(public readonly ctl: Controller) {}
+
+    public login(username: string, password: string): Promise<void> {
+        return this.ctl.login(username, password);
+    }
+
+    public loginGuest(): Promise<void> {
+        let guest_creds = window.localStorage.guest_creds;
+        let ix: number;
+        if(guest_creds === undefined || (ix = guest_creds.indexOf(":")) === -1) {
+            const alphabet = "abcdefghijklmnopqrstuvwxyz";
+
+            let username = "guest-";
+            for(let i = 0; i < 10; i++) {
+                username += alphabet[Math.floor(Math.random() * alphabet.length)];
             }
-            return ps;
+
+            let password = "";
+            for(let i = 0; i < 40; i++) {
+                password += alphabet[Math.floor(Math.random() * alphabet.length)];
+            }
+
+            window.localStorage.guest_creds = username + ":" + password;
+            return this.signUp(username, password);
+        }
+
+        return this.login(guest_creds.substr(0, ix), guest_creds.substr(ix+1));
+    }
+
+    public signUp(username: string, password:string): Promise<void> {
+        const req = new cbor.Writer();
+        req.map(3);
+        req.string("username");
+        req.string(username);
+        req.string("password");
+        req.string(password);
+        req.string("accesslevel");
+        req.string("worker");
+        req.end();
+
+        return this.ctl.request("register", {
+            data: req.done(),
+        }).then((data) => {
+            parseResponse(data, {});
+            // Hope login succeeds.
+            return this.login(username, password);
         });
     }
 }

@@ -1,108 +1,111 @@
+import {Observable, Subject} from "@/obs";
 
-export interface Project{
-    Title: string;
-    Description: string;
-}
-export interface AllProjects{
-    projects: Project[];
-}
-//export interface ExposureToUserInterface{
-//    getProjects(): Promise<AllProjects>;
-//    setChargingOnly(value: boolean): void;
-//    setAllowDataUsage(value: boolean): void;
-//    setProjectChoiceID(value: number): void;//
-//}
-
-//export interface Login{
-//    setEmailforconfirmation(email:string, password:string): Promise<boolean>;
-//    setLoggedIn(email:string, IsLoggedIn:boolean): void;/
-//}
-
-//export interface SignIn{
-//    setEmail(value:string):void;
-//   setUserNAme(vlaue:string):void;
-//    setPassword(value:string):void;
-//}
-
-//export interface MyProjects{
-//    getMyProjects(email:string): Promise<Project[]>
-//}
-
-//export interface AddMyProjects{
-//    setNewMyProject(Email:string, ProjectID:number):void;
-//}
-
-export interface ClientStateInterface{
-    ChargingOnly: boolean;
-    AllowDataUsage: boolean; 
-    ProjectChoiceID: string | null; 
-    IsLoggedIn: boolean;
-    login(email: string, password: string): Promise<void> ;
-    logout():Promise<void>;
-    ListOfAllProjects(): Promise<Project[]>;
-    ListOfMyProjects(): Promise<Project[]>;
-    NewProjectMyProjectsID: string | null;
-    SignUp(NewEmail: string,NewPassword: string,NewUserName: string): Promise<void>;
-  
+export interface Project {
+    id: string;
+    title: string;
+    description: string;
 }
 
+export interface Settings {
+    allow_mobile_data: boolean;
+    allow_on_battery: boolean;
+    projects: string[];
+}
 
+export interface User {
+    readonly username: string;
+    readonly settings: Observable<Settings>;
+    readonly projects: Observable<Map<string, Project>>;
 
-export class ClientState implements ClientStateInterface{
-    ChargingOnly = false
-    AllowDataUsage = true
-    ProjectChoiceID = "Bitcoin Mining"
-    IsLoggedIn = true;
-    login(TheEmail:string, ThePassword:string) :Promise<void> 
-        { return Promise.resolve()}
-    loginGuest() : Promise<void>
-         {return Promise.resolve()}    
-    logout() :Promise<void> 
-        { return Promise.resolve()}    
-    ListOfAllProjects() :Promise<Project[]> {return Promise.resolve([
-        {
-            Title : 'Project Title 1',
-            Description: 'description1'
-        },
-        {
-            Title : 'Project Title 2',
-            Description: 'description2'
-        },
-        {
-            Title : 'Project Title 3',
-            Description: 'description3'
-        },
-        {
-            Title : 'Project Title 4',
-            Description: 'description4'
-        },
-        {
-            Title : 'Project Title 5',
-            Description: 'description5'
-        },
-      ])
+    logout(): Promise<void>;
+
+    updateSettings(upd: Partial<Settings>): void;
+    setProjectOn(name: string): void;
+    setProjectOff(name: string): void;
+}
+
+export interface ClientState {
+    readonly user: Observable<User | null>;
+
+    login(username: string, password: string): Promise<void>;
+    loginGuest(): Promise<void>;
+    signUp(username: string, password: string): Promise<void>;
+}
+
+export class MockClientState implements ClientState {
+    public user = new Subject<User | null>(null);
+
+    public login(username: string, password: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            setTimeout(() => {
+                if(password !== "a") {
+                    reject(new Error("Password not 'a'"));
+                    return;
+                }
+
+                this.user.next(new MockUser(this, username));
+
+                resolve();
+            }, 1000);
+        });
     }
-    ListOfMyProjects() :Promise<Project[]> {return Promise.resolve([
-        {
-            Title : 'Project Title 1',
-            Description: 'description1'
-        },
-        {
-            Title : 'Project Title 2',
-            Description: 'description2'
-        },
-        {
-            Title : 'Project Title 3',
-            Description: 'description3'
-        }
-      ])
-    }
-    NewProjectMyProjectsID = "Fibonacci counter"
-    SignUp(EmailToAdd:string, PasswordToAdd:string):Promise<void> 
-    { return Promise.resolve()}
 
-  
+    public loginGuest(): Promise<void> {
+        return new Promise((resolve, reject) => {
+            setTimeout(() => {
+                this.user.next(new MockUser(this, "guest"));
+                resolve();
+            }, 1000);
+        });
+    }
+
+    public signUp(username: string, password:string): Promise<void> {
+        return this.login(username, "a");
+    }
 }
 
+export class MockUser implements User {
+    constructor(
+        private readonly st: MockClientState,
+        public readonly username: string
+    ) {}
 
+    public readonly settings = new Subject<Settings>({
+        allow_mobile_data: true,
+        allow_on_battery: true,
+        projects: ["proj1", "proj2", "proj3"],
+    });
 
+    public readonly projects = new Subject(new Map([
+        {
+            id: "proj1",
+            title : 'Project Title 1',
+            description: 'description1'
+        }, {
+            id: "proj2",
+            title : 'Project Title 2',
+            description: 'description2'
+        }, {
+            id: "proj3",
+            title : 'Project Title 3',
+            description: 'description3'
+        }, {
+            id: "proj4",
+            title : 'Project Title 4',
+            description: 'description4'
+        }, {
+            id: "proj5",
+            title : 'Project Title 5',
+            description: 'description5'
+        }].map((p): [string, Project] => [p.id, p]),
+    ));
+
+    public logout(): Promise<void> {
+        this.st.user.next(null);
+        return Promise.resolve();
+    }
+
+    updateSettings(upd: Partial<Settings>): void {}
+    setProjectOn(name: string): void {}
+    setProjectOff(name: string): void {}
+}

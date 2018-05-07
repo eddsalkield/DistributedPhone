@@ -1,0 +1,64 @@
+.Navbar {
+	height: 4em;
+}
+
+.Navbar-header {
+	height: 4em;
+	padding: 0.5em;
+	border-bottom: 1px solid #ccc;
+	display: flex;
+	align-items: center;
+	justify-content: stretch;
+}
+
+.Navbar-button {
+	height: 3em;
+	width: 3em;
+	margin-right: 1em;
+	border: 1px solid #ccc;
+	appearance: none;
+	-moz-appearance: none;
+	-webkit-appearance: none;
+}
+.Navbar-button:after {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	content: '\1F354';
+	font-size: 2em;
+}
+
+.Navbar-button:checked {
+	background-color: #ff8;
+}
+
+.Navbar-menu {
+	position: absolute;
+	left: 0px;
+	right: 30%;
+	top: 4em;
+	bottom: 0px;
+	max-width: 250px;
+
+	display: flex;
+	background: #fff;
+	border-right: 1px solid #ccc;
+	flex-direction: column;
+	align-items: left;
+
+	transition: transform 0.2s ease-out;
+}
+
+.Navbar-menu:not(.visible) {
+	transform: translateX(-100%);
+}
+
+.Navbar-menu > a {
+	display: block;
+	width: 100%;
+	font-size: 1.25em;
+	padding: 1em;
+	text-align: right;
+}

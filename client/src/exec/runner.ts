@@ -118,12 +118,13 @@ export default class Runner {
     private constructor(
         private readonly st: stat.Sink,
         private readonly provider: api.WorkProvider,
-        public readonly repo: BlobRepo
+        public readonly repo: BlobRepo,
+        private readonly state_key: string
     ) {}
 
-    public static create(st: stat.Sink, provider: api.WorkProvider, storage: Storage): Promise<Runner> {
+    public static create(st: stat.Sink, provider: api.WorkProvider, storage: Storage, state_key: string): Promise<Runner> {
         return BlobRepo.create(st, provider, storage).then((repo) => repo.readState("runner").then((data) => {
-            const r = new Runner(st, provider, repo);
+            const r = new Runner(st, provider, repo, state_key);
             if(data !== null) {
                 try {
                     r.load(data);
@@ -537,6 +538,7 @@ export default class Runner {
 
     public data(): rs.RunnerData {
         return {
+            state_key: this.state_key,
             tasks: Array.from(this.tasks.values()).map((t) => t.data()),
         };
     }
@@ -578,6 +580,11 @@ export default class Runner {
             throw new err.State("Failed to decode state", {
                 "cause": err.dataOf(e),
             });
+        }
+
+        if(d.state_key !== this.state_key) {
+            // State key changed, ignore state.
+            return;
         }
 
         const tasks: Task[] = [];
