@@ -10,14 +10,25 @@ export default class DOMDevice implements Device {
         const nav: any = window.navigator;
 
         if(nav.connection === undefined) {
-            this.on_mobile_data.next(false);
+            this.on_mobile_data.error(new Error("Not available"));
         } else {
-            this.on_mobile_data.next(nav.connection.type === "none");
+            this.on_mobile_data.next(nav.connection.type === "cellular");
             nav.connection.addEventListener("typechange", () => {
-                this.on_mobile_data.next(nav.connection.type === "none");
+                this.on_mobile_data.next(nav.connection.type === "cellular");
             });
         }
 
-        this.on_battery.next(false);
+        if(nav.getBattery === undefined) {
+            this.on_battery.error(new Error("Not available"));
+        } else {
+            nav.getBattery().then((bat: any) => {
+                this.on_battery.next(!bat.charging);
+                bat.addEventListener("chargingchange", () => {
+                    this.on_battery.next(!bat.charging);
+                });
+            }, (e: Error) => {
+                this.on_battery.error(e);
+            });
+        }
     }
 }

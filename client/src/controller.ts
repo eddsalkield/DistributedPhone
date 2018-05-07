@@ -516,16 +516,29 @@ export class User implements ui_api.User {
                         else return dev.on_mobile_data;
                     });
 
+                    this.have_battery = true;
+                    this.have_network = true;
+
                     const subs = [
                         obs_block_work.subscribe((v) => {
                             this.ov_work_paused = v;
                             this.makeOverview();
                             r.paused = v;
+                        }, () => {
+                            this.ov_work_paused = false;
+                            this.have_battery = false;
+                            this.makeOverview();
+                            r.paused = false;
                         }),
                         obs_block_download.subscribe((v) => {
                             this.ov_dl_paused = v;
                             this.makeOverview();
                             wp.paused = v;
+                        }, () => {
+                            this.ov_dl_paused = false;
+                            this.have_network = false;
+                            this.makeOverview();
+                            wp.paused = false;
                         }),
                     ];
 
@@ -646,6 +659,8 @@ export class User implements ui_api.User {
         this.makeOverview();
     }
 
+    private have_battery: boolean = false;
+    private have_network: boolean = false;
     private ov_work_paused: boolean = false;
     private ov_dl_paused: boolean = false;
     public ov_tasks_pending: number = 0;
@@ -661,8 +676,14 @@ export class User implements ui_api.User {
         } else {
             ov.push("Stopped");
         }
+        if(!this.have_battery) {
+            ov.push("Battery status not available");
+        }
         if(this.ov_work_paused) {
             ov.push("On battery; not working");
+        }
+        if(!this.have_network) {
+            ov.push("Network status not available");
         }
         if(this.ov_dl_paused) {
             ov.push("On mobile data; not requesting work");
@@ -671,6 +692,15 @@ export class User implements ui_api.User {
         ov.push(`Tasks ready to run: ${this.ov_tasks_ready}`);
         ov.push(`Tasks in send queue: ${this.ov_tasks_finished}`);
         ov.push(`Tasks sent: ${this.ov_tasks_sent}`);
+        ov.push(`navigator.connection: ${(window.navigator as any).connection}`);
+        ov.push(`navigator.mozConnection: ${(window.navigator as any).mozConnection}`);
+        ov.push(`navigator.webkitConnection: ${(window.navigator as any).webkitConnection}`);
+        ov.push(`navigator.battery: ${(window.navigator as any).battery}`);
+        ov.push(`navigator.mozBattery: ${(window.navigator as any).mozBattery}`);
+        ov.push(`navigator.webkitBattery: ${(window.navigator as any).webkitBattery}`);
+        ov.push(`navigator.getBattery: ${(window.navigator as any).getBattery}`);
+        ov.push(`navigator.mozGetBattery: ${(window.navigator as any).mozGetBattery}`);
+        ov.push(`navigator.webkitGetBattery: ${(window.navigator as any).webkitGetBattery}`);
         this.overview.next(ov);
     }
 }
