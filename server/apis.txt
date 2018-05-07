@@ -124,7 +124,95 @@ Returns:
 		"tasksCompleted":	[(int, int)],
 		"tasksFailed":		[(int, int)],
 		"tasksRefused":		[(int, int)]
+	},
+
+	"customGraphs": {
+		"graphName": {
+			"description": string,
+
+		}
 	}
 }
 	}
+}
+
+
+
+updateGraphs(token, graphsCBOR)
+
+
+
+
+Customer-server:
+----------------
+Task format:
+
+
+
+Server-side storage:
+--------------------
+
+projects:
+{
+	"blobs": {blobdict}, // Maps blob IDs to blobdict
+	"blobids": 0, // The latest blob ID we gave out
+	"unfinishedTasks": []	// List of all blobIDs representing yet-to-be finished tasks
+	"description": string,	// The description of the project
+	"graphing": {
+		"standardGraphs": {
+			"activeWorkers": [datapoint],
+			"totalWorkers": [datapoint],
+			"tasksCompleted": [datapoint],
+			"tasksFailed": [datapoint],
+			"tasksRefused": [datapoint],
+			"cpuTime": [datapoint]
+		},
+		"customGraphs": {
+			graphsFormat
+		}
+	}
+
+
+}
+
+> blobdict:
+{
+	"blob": bytes,
+	"metadata": bytes,
+	"task": bool,		// True iff this is a task
+	"finished": bool	// True iff this is a now-finished task
+}
+
+> datapoint:
+{
+	"x": int,
+	"y": int
+}
+
+graphing:
+* In projects[pname]["graphing"]
+
+
+graphsFormat:
+{
+	"graphName": {
+		"description": string,
+		"keys": {
+			"lineName": {
+				"colour": "rgb(0-255,0-255,0-255)",
+				"line": bool,	// true iff line drawn between points
+				"data": [
+					{
+						"x": int,
+						"y": int
+					}
+				]
+			}
+		},
+		"xlabel": string,
+		"ylabel": string,
+		"time": bool,	// True iff x data is milliseconds since epoch
+		"type": "scatter"
+	},
+	"pname": string
 }
