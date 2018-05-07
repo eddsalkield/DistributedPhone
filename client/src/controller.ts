@@ -218,8 +218,9 @@ class WorkProvider implements exec_api.WorkProvider {
     public save_timeout = 1000;
     public cache_max = 2.0e8;
 
-    public req_q: Array<() => void> = [];
-    public paused: boolean = false;
+    private req_q: Array<() => void> = [];
+    private _paused: boolean = false;
+    private _stopped: boolean = false;
 
     constructor(
         private readonly ctl: Controller,
@@ -227,9 +228,34 @@ class WorkProvider implements exec_api.WorkProvider {
         private readonly token: string,
     ) {}
 
+    public get paused() {
+        return this._paused;
+    }
+
+    public set paused(v: boolean) {
+        if(v) {
+            if(this._stopped) return;
+            this._paused = true;
+        } else {
+            if(!this._paused) return;
+            this._paused = false;
+            const r = this.req_q.splice(0);
+            for(const f of r) f();
+        }
+    }
+
+    public stop(): void {
+        this._stopped = true;
+        this.paused = false;
+    }
+
     private request(path: string, opts: ReqOpts): Promise<ArrayBuffer> {
         return new Promise((resolve, reject) => {
             const f = () => {
+                if(this._stopped) {
+                    reject(new err.Cancelled("Stopping WorkProvider"));
+                    return;
+                }
                 try {
                     resolve(this.ctl.request(path, opts));
                 } catch(e) {
@@ -499,12 +525,7 @@ export class User implements ui_api.User {
                         obs_block_download.subscribe((v) => {
                             this.ov_dl_paused = v;
                             this.makeOverview();
-                            if(v) wp.paused = true;
-                            else {
-                                wp.paused = false;
-                                const r = wp.req_q.splice(0);
-                                for(const f of r) f();
-                            }
+                            wp.paused = v;
                         }),
                     ];
 
@@ -513,6 +534,7 @@ export class User implements ui_api.User {
                     return {
                         runner: r,
                         stop() {
+                            wp.stop();
                             for(const sub of subs) sub.stop();
                             return r.stop().finally(() => {
                                 storage.stop();

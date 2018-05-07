@@ -247,8 +247,10 @@ export default class Runner {
             this.addTaskSet(tasks);
             this.request_tasks_backoff.succeed();
         }).catch((e: Error) => {
-            this.request_tasks_backoff.fail();
-            this.st.reportError(e);
+            if(!(e instanceof err.Cancelled)) {
+                this.request_tasks_backoff.fail();
+                this.st.reportError(e);
+            }
         }).finally(() => {
             this.requesting_tasks = false;
             if(this.partStop()) return;
@@ -361,8 +363,10 @@ export default class Runner {
                 this.tasks_sending.delete(t);
                 this.tasks_finished.insertFront(t);
             }
-            this.st.reportError(e);
-            this.send_results_backoff.fail();
+            if(!(e instanceof err.Cancelled)) {
+                this.send_results_backoff.fail();
+                this.st.reportError(e);
+            }
             this.report();
         }).finally(() => {
             this.sending_results = false;

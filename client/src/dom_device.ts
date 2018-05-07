@@ -9,13 +9,12 @@ export default class DOMDevice implements Device {
     constructor() {
         const nav: any = window.navigator;
 
-        const nav_conn: any = nav.connection;
-        if(nav_conn === undefined) {
+        if(nav.connection === undefined) {
             this.on_mobile_data.next(false);
         } else {
-            this.on_mobile_data.next(nav_conn.type === "cellular");
-            nav_conn.addEventListener("typechange", () => {
-                this.on_mobile_data.next(nav_conn.type === "cellular");
+            this.on_mobile_data.next(nav.connection.type === "none");
+            nav.connection.addEventListener("typechange", () => {
+                this.on_mobile_data.next(nav.connection.type === "none");
             });
         }
 
