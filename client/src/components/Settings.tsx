@@ -4,6 +4,7 @@ import * as obs from "@/obs";
 
 import * as api from "../API";
 
+import Form from "./Form";
 import InCheckbox from "./InCheckbox";
 import Loading from "./Loading";
 
@@ -56,14 +57,14 @@ export default class Settings extends React.Component<Props, State> {
 
         return <div className="Settings">
             <h2>Settings</h2>
-            <form className="form form-large" onSubmit={(e) => e.preventDefault()}>
+            <Form className="Form-large">
                 <InCheckbox name="allow_mobile_data" value={this.state.set.allow_mobile_data} onChange={this.onChange} >
                     <span>Allow mobile data usage</span>
                 </InCheckbox>
                 <InCheckbox name="allow_on_battery" value={this.state.set.allow_on_battery} onChange={this.onChange}>
                     <span>Allow working on battery</span>
                 </InCheckbox>
-            </form>
+            </Form>
         </div>;
     } 
 

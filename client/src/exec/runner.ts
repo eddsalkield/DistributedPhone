@@ -621,4 +621,22 @@ export default class Runner {
             }
         }
     }
+
+    private _unpause: (() => void) | null = null;
+    public get paused(): boolean {
+        return this._unpause !== null;
+    }
+    public set paused(v: boolean) {
+        if(v) {
+            if(this._unpause !== null) return;
+            this.dispatcher.pause(new Promise<void>((resolve,reject) => {
+                this._unpause = resolve;
+            }));
+        } else {
+            const cb = this._unpause;
+            if(cb === null) return;
+            this._unpause = null;
+            return;
+        }
+    }
 }

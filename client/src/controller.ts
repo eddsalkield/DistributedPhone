@@ -4,6 +4,7 @@ import * as ui_api from "@/API";
 
 import * as cbor from "@/cbor";
 import * as cbut from "@/cbor-util";
+import {Device} from "@/device";
 import * as err from "@/err";
 import * as obs from "@/obs";
 import * as stat from "@/stat";
@@ -74,6 +75,7 @@ export class Controller {
     constructor(
         /* Base URL with trailing slash */
         public readonly url: string,
+        public readonly device: Device,
     ) {
         this.stat_root = new stat.Root(new TSDB());
 
@@ -219,6 +221,9 @@ class WorkProvider implements exec_api.WorkProvider {
     public save_timeout = 1000;
     public cache_max = 2.0e8;
 
+    public req_q: Array<() => void> = [];
+    public paused: boolean = false;
+
     constructor(
         private readonly ctl: Controller,
         private readonly cfg: obs.Observable<Settings>,
@@ -228,12 +233,17 @@ class WorkProvider implements exec_api.WorkProvider {
     private request(path: string, opts: ReqOpts): Promise<ArrayBuffer> {
         return new Promise((resolve, reject) => {
             const f = () => {
-                const pr = this.ctl.request(path, opts);
-                pr.then(resolve, reject);
-                return pr.then(() => {}, () => {});
+                try {
+                    resolve(this.ctl.request(path, opts));
+                } catch(e) {
+                    reject(e);
+                }
             };
-            // TODO: data limits
-            f();
+            if(this.paused) {
+                this.req_q.push(f);
+            } else {
+                f();
+            }
         });
     }
 
@@ -468,9 +478,36 @@ export class User implements ui_api.User {
             ).then((storage) => {
                 const wp = new WorkProvider(this.ctl, this.settings, this.token);
                 return Runner.create(this.ctl.stat_root, wp, storage, this.token).then((r) => {
+                    const dev = this.ctl.device;
+                    const obs_block_work = obs.switchMap(this.settings, (s) => {
+                        if(s.allow_on_battery) return obs.single(false);
+                        else return dev.on_battery;
+                    });
+                    const obs_block_download = obs.switchMap(this.settings, (s) => {
+                        if(s.allow_mobile_data) return obs.single(false);
+                        else return dev.on_mobile_data;
+                    });
+
+                    const subs = [
+                        obs_block_work.subscribe((v) => {
+                            r.paused = v;
+                        }),
+                        obs_block_download.subscribe((v) => {
+                            if(v) wp.paused = true;
+                            else {
+                                wp.paused = false;
+                                const r = wp.req_q.splice(0);
+                                for(const f of r) f();
+                            }
+                        }),
+                    ];
+
+                    for(const sub of subs) sub.start();
+
                     return {
                         runner: r,
                         stop() {
+                            for(const sub of subs) sub.stop();
                             return r.stop().finally(() => {
                                 storage.stop();
                             });
