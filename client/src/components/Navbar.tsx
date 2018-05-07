@@ -45,6 +45,12 @@ export default class Navbar extends React.Component<Props, State> {
         this.setState({visible: false});
     };
 
+    onStop = () => {
+        this.props.user.stop().then(() => {
+            // TODO
+        });
+    };
+
     onLogout = () => {
         this.setState({logging_out: true})
         this.props.user.logout().catch((e) => {
@@ -63,6 +69,7 @@ export default class Navbar extends React.Component<Props, State> {
                 <Link to="/" onClick={this.onNav}>Overview</Link>
                 <Link to="/projects" onClick={this.onNav}>Projects</Link>
                 <Link to="/settings" onClick={this.onNav}>Settings</Link>
+                <a onClick={this.onStop} className={this.state.logging_out ? "inprogress" : ""}>Stop</a>
                 <a onClick={this.onLogout} className={this.state.logging_out ? "inprogress" : ""}>Log out</a>
             </div>
         </div>;

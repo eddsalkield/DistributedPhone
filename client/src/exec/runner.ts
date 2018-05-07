@@ -76,12 +76,12 @@ class Task {
 const worker_blob: Blob = new Blob([worker_text], {type: "text/javascript"});
 
 export default class Runner {
-    private readonly st_pending = new stat.Metric<number>("Runner/tasks_pending").attach(this.st);
-    private readonly st_blocked = new stat.Metric<number>("Runner/tasks_blocked").attach(this.st);
-    private readonly st_running = new stat.Metric<number>("Runner/tasks_running").attach(this.st);
-    private readonly st_finished = new stat.Metric<number>("Runner/tasks_finished").attach(this.st);
-    private readonly st_sending = new stat.Metric<number>("Runner/tasks_sending").attach(this.st);
-    private readonly st_sent = new stat.Counter("Runner/tasks_sent").attach(this.st);
+    private readonly st_pending = new stat.Metric("runner/tasks_pending").attach(this.st);
+    private readonly st_blocked = new stat.Metric("runner/tasks_blocked").attach(this.st);
+    private readonly st_running = new stat.Metric("runner/tasks_running").attach(this.st);
+    private readonly st_finished = new stat.Metric("runner/tasks_finished").attach(this.st);
+    private readonly st_sending = new stat.Metric("runner/tasks_sending").attach(this.st);
+    private readonly st_sent = new stat.Counter("runner/tasks_sent").attach(this.st);
 
     private readonly dispatcher = new wd.Dispatcher(this.st, worker_blob);
 

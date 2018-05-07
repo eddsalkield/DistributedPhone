@@ -1,4 +1,4 @@
-import * as React from 'react'
+import * as React from "react"
 
 import * as api from "../API";
 
@@ -7,7 +7,7 @@ import Form, {FormData} from "./Form";
 import FormError from "./FormError";
 import InText from "./InText";
 
-import './Login.css';
+import "./Login.css";
 
 interface Props {
     controller: api.ClientState;

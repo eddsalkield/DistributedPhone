@@ -16,8 +16,10 @@ export interface User {
     readonly username: string;
     readonly settings: Observable<Settings>;
     readonly projects: Observable<Map<string, Project>>;
+    readonly overview: Observable<string[]>;
 
     logout(): Promise<void>;
+    stop(): Promise<void>;
 
     updateSettings(upd: Partial<Settings>): void;
     setProjectOn(name: string): void;
@@ -100,8 +102,13 @@ export class MockUser implements User {
         }].map((p): [string, Project] => [p.id, p]),
     ));
 
+    readonly overview = new Subject(["This is a mock"]);
+
     public logout(): Promise<void> {
         this.st.user.next(null);
+        return Promise.resolve();
+    }
+    public stop(): Promise<void> {
         return Promise.resolve();
     }
 

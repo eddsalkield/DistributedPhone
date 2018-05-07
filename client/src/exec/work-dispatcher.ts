@@ -184,13 +184,13 @@ class WorkController implements Controller {
 }
 
 export class Dispatcher {
-    private readonly st_work = new stat.Metric<number>(
+    private readonly st_work = new stat.Metric(
         "work_dispatcher/work_queue_size"
     ).attach(this.st);
-    private readonly st_workers = new stat.Metric<number>(
+    private readonly st_workers = new stat.Metric(
         "work_dispatcher/workers"
     ).attach(this.st);
-    private readonly st_workers_free = new stat.Metric<number>(
+    private readonly st_workers_free = new stat.Metric(
         "work_dispatcher/workers_free"
     ).attach(this.st);
     private readonly st_workers_started = new stat.Counter(

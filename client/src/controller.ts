@@ -12,18 +12,6 @@ import * as stat from "@/stat";
 import IDBStorage from "@/exec/idb_storage";
 import Runner from "@/exec/runner";
 
-class TSDB implements stat.TSDB {
-    constructor() {}
-
-    public write(at: number, data: stat.Point[]): void {
-        for(const p of data) console.log(p);
-    }
-
-    public writeError(at: number, e: err.Data): void {
-        console.error(e);
-    }
-}
-
 interface ReqOpts {
     data?: Uint8Array;
     expect_size?: number;
@@ -77,7 +65,16 @@ export class Controller {
         public readonly url: string,
         public readonly device: Device,
     ) {
-        this.stat_root = new stat.Root(new TSDB());
+        this.stat_root = new stat.Root({
+            write: (at: number, data: stat.Point[]): void => {
+                const ud = this.user.value;
+                if(!ud) return;
+                for(const p of data) ud.onStat(p[0], p[1], p[2]);
+            },
+            writeError: (at: number, e: err.Data): void => {
+                console.error(e);
+            },
+        });
 
         const login_data = window.localStorage.login_data;
         if(login_data === undefined) {
@@ -215,8 +212,8 @@ function readTask(project: string, id: string, data: Uint8Array): exec_api.Task 
 }
 
 class WorkProvider implements exec_api.WorkProvider {
-    public tasks_pending_min = 100;
-    public tasks_finished_max = 1000;
+    public tasks_pending_min = 10;
+    public tasks_finished_max = 100;
     public send_max_bytes = 2.0e5;
     public save_timeout = 1000;
     public cache_max = 2.0e8;
@@ -294,7 +291,7 @@ class WorkProvider implements exec_api.WorkProvider {
         req.string("pname");
         req.string(project);
         req.string("maxtasks");
-        req.number(500); // TODO: set to something proper.
+        req.number(50); // TODO: set to something proper.
         req.string("token");
         req.string(this.token);
         req.end();
@@ -404,6 +401,7 @@ interface RunnerData {
 export class User implements ui_api.User {
     public readonly projects = new obs.Cache<Map<string, Project>>();
     public readonly settings: obs.Subject<Settings>;
+    public readonly overview = new obs.Subject<string[]>();
     public readonly as_json: obs.Observable<string>;
 
     private runner_promise: Promise<RunnerData> | null = null;
@@ -449,6 +447,10 @@ export class User implements ui_api.User {
         return new User(ctl, d["username"], d["token"], settings);
     }
 
+    public stop(): Promise<void> {
+        return this.stopExec().catch((e) => this.ctl.stat_root.reportError(e));
+    }
+
     public logout(): Promise<void> {
         const req = new cbor.Writer();
         req.map(1);
@@ -459,7 +461,7 @@ export class User implements ui_api.User {
         this.settings.complete();
 
         return Promise.all([
-            this.stopExec().catch((e) => this.ctl.stat_root.reportError(e)),
+            this.stop(),
             this.ctl.request("logout", {
                 data: req.done(),
             }).then((data) => {
@@ -490,9 +492,13 @@ export class User implements ui_api.User {
 
                     const subs = [
                         obs_block_work.subscribe((v) => {
+                            this.ov_work_paused = v;
+                            this.makeOverview();
                             r.paused = v;
                         }),
                         obs_block_download.subscribe((v) => {
+                            this.ov_dl_paused = v;
+                            this.makeOverview();
                             if(v) wp.paused = true;
                             else {
                                 wp.paused = false;
@@ -599,6 +605,51 @@ export class User implements ui_api.User {
                 projects: proj,
             });
         });
+    }
+
+    onStat(name: string, key: stat.Key, value: number) {
+        if(name === "runner/tasks_pending") {
+            this.ov_tasks_pending = value;
+        } else if(name === "runner/tasks_finished") {
+            this.ov_tasks_finished = value;
+        } else if(name === "runner/tasks_sent") {
+            this.ov_tasks_sent = value;
+        } else if(name === "runner/tasks_running") {
+            this.ov_tasks_running = value;
+        } else if(name === "work_dispatcher/work_queue_size") {
+            this.ov_tasks_ready = value;
+        } else {
+            return;
+        }
+        this.makeOverview();
+    }
+
+    private ov_work_paused: boolean = false;
+    private ov_dl_paused: boolean = false;
+    public ov_tasks_pending: number = 0;
+    public ov_tasks_ready: number = 0;
+    public ov_tasks_finished: number = 0;
+    public ov_tasks_sent: number = 0;
+    public ov_tasks_running: number = 0;
+
+    private makeOverview(): void {
+        const ov: string[] = [];
+        if(this.runner_promise !== null) {
+            ov.push("Ready to work");
+        } else {
+            ov.push("Stopped");
+        }
+        if(this.ov_work_paused) {
+            ov.push("On battery; not working");
+        }
+        if(this.ov_dl_paused) {
+            ov.push("On mobile data; not requesting work");
+        }
+        ov.push(`Tasks waiting: ${this.ov_tasks_pending - this.ov_tasks_ready - this.ov_tasks_running}`);
+        ov.push(`Tasks ready to run: ${this.ov_tasks_ready}`);
+        ov.push(`Tasks in send queue: ${this.ov_tasks_finished}`);
+        ov.push(`Tasks sent: ${this.ov_tasks_sent}`);
+        this.overview.next(ov);
     }
 }
 
