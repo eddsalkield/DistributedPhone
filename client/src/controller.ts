@@ -20,7 +20,7 @@ interface ReqOpts {
 type Settings = ui_api.Settings;
 type Project = ui_api.Project;
 
-function parseResponse(data: ArrayBuffer, handlers: {[name:string]: ((r: cbor.Reader) => void) | undefined}): void {
+function parseResponse(data: ArrayBuffer, handlers: {[name: string]: ((r: cbor.Reader) => void) | undefined}): void {
     let success: boolean | undefined;
     let error: string | undefined;
 
@@ -629,7 +629,7 @@ export class User implements ui_api.User {
         });
     }
 
-    onStat(name: string, key: stat.Key, value: number) {
+    public onStat(name: string, key: stat.Key, value: number) {
         if(name === "runner/tasks_pending") {
             this.ov_tasks_pending = value;
         } else if(name === "runner/tasks_finished") {
@@ -687,29 +687,22 @@ export class UIState implements ui_api.ClientState {
     }
 
     public loginGuest(): Promise<void> {
-        let guest_creds = window.localStorage.guest_creds;
-        let ix: number;
-        if(guest_creds === undefined || (ix = guest_creds.indexOf(":")) === -1) {
-            const alphabet = "abcdefghijklmnopqrstuvwxyz";
+        const alphabet = "abcdefghijklmnopqrstuvwxyz";
 
-            let username = "guest-";
-            for(let i = 0; i < 10; i++) {
-                username += alphabet[Math.floor(Math.random() * alphabet.length)];
-            }
-
-            let password = "";
-            for(let i = 0; i < 40; i++) {
-                password += alphabet[Math.floor(Math.random() * alphabet.length)];
-            }
-
-            window.localStorage.guest_creds = username + ":" + password;
-            return this.signUp(username, password);
+        let username = "guest-";
+        for(let i = 0; i < 10; i++) {
+            username += alphabet[Math.floor(Math.random() * alphabet.length)];
         }
 
-        return this.login(guest_creds.substr(0, ix), guest_creds.substr(ix+1));
+        let password = "";
+        for(let i = 0; i < 40; i++) {
+            password += alphabet[Math.floor(Math.random() * alphabet.length)];
+        }
+
+        return this.signUp(username, password);
     }
 
-    public signUp(username: string, password:string): Promise<void> {
+    public signUp(username: string, password: string): Promise<void> {
         const req = new cbor.Writer();
         req.map(3);
         req.string("username");

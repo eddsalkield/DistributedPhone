@@ -14,7 +14,7 @@ interface State {
 }
 
 export default class Home extends React.Component<Props, State> {
-    subs: obs.Subscription[];
+    private readonly subs: obs.Subscription[];
 
     constructor(props: Props) {
         super(props);
@@ -29,15 +29,15 @@ export default class Home extends React.Component<Props, State> {
         ];
     }
 
-    componentDidMount() {
+    public componentDidMount() {
         for(const s of this.subs) s.start();
     }
 
-    componentWillUnmount() {
+    public componentWillUnmount() {
         for(const s of this.subs) s.stop();
     }
 
-    render() {
+    public render() {
         const {overview} = this.state;
 
         return <div className="Home">

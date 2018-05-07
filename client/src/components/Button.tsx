@@ -1,4 +1,4 @@
-import * as React from 'react'
+import * as React from "react";
 
 import "./Input.css";
 
@@ -9,7 +9,7 @@ interface Props {
 }
 
 export default class Button extends React.Component<Props> {
-    render() {
+    public render() {
         const {type, onClick, children} = this.props;
 
         return <button

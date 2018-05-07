@@ -1,4 +1,4 @@
-import * as React from 'react'
+import * as React from "react";
 
 import "./Input.css";
 
@@ -22,15 +22,15 @@ export default class InText extends React.Component<Props, State> {
         };
     }
 
-    onFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    private onFocus = (e: React.FocusEvent<HTMLInputElement>) => {
         this.setState({focus: true});
-    };
+    }
 
-    onUnfocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    private onUnfocus = (e: React.FocusEvent<HTMLInputElement>) => {
         this.setState({focus: false});
-    };
+    }
 
-    render() {
+    public render() {
         const {className, type, name, value, onChange, desc} = this.props;
 
         return <label className={(className || "") + " Input InText" + (this.state.focus ? " InText-focus" : "")}>

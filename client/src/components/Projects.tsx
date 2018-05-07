@@ -19,7 +19,7 @@ interface State {
 }
 
 export default class Projects extends React.Component<Props, State> {
-    subs: obs.Subscription[];
+    private readonly subs: obs.Subscription[];
 
     constructor(props: Props) {
         super(props);
@@ -36,17 +36,17 @@ export default class Projects extends React.Component<Props, State> {
                 this.setState({projects: Array.from(p.values())});
             }),
         ];
-    } 
+    }
 
-    componentDidMount() {
+    public componentDidMount() {
         for(const sub of this.subs) sub.start();
     }
 
-    componentWillUnmount() {
+    public componentWillUnmount() {
         for(const sub of this.subs) sub.stop();
     }
 
-    onSet = (name: string, value: boolean) => {
+    private onSet = (name: string, value: boolean) => {
         const enabled = this.state.enabled!;
         if(value) {
             if(!enabled.has(name)) {
@@ -57,9 +57,9 @@ export default class Projects extends React.Component<Props, State> {
                 this.props.user.setProjectOff(name);
             }
         }
-    };
+    }
 
-    render() {
+    public render() {
         const {projects, enabled} = this.state;
         if(projects === undefined || enabled === undefined) {
             return <Loading />;
@@ -69,7 +69,7 @@ export default class Projects extends React.Component<Props, State> {
             <h2>Projects</h2>
             {projects.map((p) => <Project key={p.id} data={p} enabled={enabled.has(p.id)} onSet={this.onSet} />)}
         </div>;
-    } 
+    }
 }
 
 interface ProjProps {
@@ -79,11 +79,11 @@ interface ProjProps {
 }
 
 class Project extends React.Component<ProjProps> {
-    onChange = (name: string | undefined, value: boolean) => {
+    private onChange = (name: string | undefined, value: boolean) => {
         this.props.onSet(this.props.data.id, value);
-    };
+    }
 
-    render() {
+    public render() {
         const p = this.props.data;
         return <div className="Projects-Project">
             <InCheckbox value={this.props.enabled} onChange={this.onChange}>
@@ -91,5 +91,5 @@ class Project extends React.Component<ProjProps> {
             </InCheckbox>
             <p>{p.description}</p>
         </div>;
-    };
+    }
 }

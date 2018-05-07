@@ -36,21 +36,21 @@ export default class Settings extends React.Component<Props, State> {
                 this.setState({projects: p});
             }),
         ];
-    } 
+    }
 
-    componentDidMount() {
+    public componentDidMount() {
         for(const sub of this.subs) sub.start();
     }
 
-    componentWillUnmount() {
+    public componentWillUnmount() {
         for(const sub of this.subs) sub.stop();
     }
 
-    onChange = (name: string | undefined, value: boolean) => {
+    private onChange = (name: string | undefined, value: boolean) => {
         this.props.user.updateSettings({[name as string]: value});
     }
 
-    render() {
+    public render() {
         if(this.state.set === undefined) {
             return <Loading />;
         }
@@ -66,6 +66,5 @@ export default class Settings extends React.Component<Props, State> {
                 </InCheckbox>
             </Form>
         </div>;
-    } 
-
+    }
 }

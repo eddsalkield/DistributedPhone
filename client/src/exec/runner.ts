@@ -122,7 +122,12 @@ export default class Runner {
         private readonly state_key: string
     ) {}
 
-    public static create(st: stat.Sink, provider: api.WorkProvider, storage: Storage, state_key: string): Promise<Runner> {
+    public static create(
+        st: stat.Sink,
+        provider: api.WorkProvider,
+        storage: Storage,
+        state_key: string
+    ): Promise<Runner> {
         return BlobRepo.create(st, provider, storage).then((repo) => repo.readState("runner").then((data) => {
             const r = new Runner(st, provider, repo, state_key);
             if(data !== null) {

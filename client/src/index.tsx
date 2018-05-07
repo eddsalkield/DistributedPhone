@@ -14,7 +14,7 @@ const ctl = new Controller("http://35.178.90.246/api/", new Device());
 
 const uictl = new UIState(ctl);
 
-render(<App controller = {uictl}/>, document.getElementById('root'));
+render(<App controller = {uictl}/>, document.getElementById("root"));
 
 (self as any).ctl = ctl;
 

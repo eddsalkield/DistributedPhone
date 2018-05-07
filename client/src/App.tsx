@@ -5,11 +5,11 @@ import * as obs from "@/obs";
 
 import * as api from "./API";
 
-import Settings from "./components/Settings";
-import Navbar from "./components/Navbar";
 import Home from "./components/Home";
 import Login from "./components/Login";
+import Navbar from "./components/Navbar";
 import Projects from "./components/Projects";
+import Settings from "./components/Settings";
 
 import "./App.css";
 
@@ -34,15 +34,15 @@ class App extends React.Component<Props, State> {
         ];
     }
 
-    componentDidMount() {
+    public componentDidMount() {
         for(const s of this.subs) s.start();
     }
 
-    componentWillUnmount() {
+    public componentWillUnmount() {
         for(const s of this.subs) s.stop();
     }
 
-    render() {
+    public render() {
         const controller = this.props.controller;
         const user = this.state.user;
         if(user === undefined) return <div />;

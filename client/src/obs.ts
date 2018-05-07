@@ -32,30 +32,30 @@ class SubscriptionObserverImpl<T> implements SubscriptionObserver<T> {
 
     public next(value: T): void {
         if(this._closed) return;
-		try {
-			this._onNext(value);
-		} catch(e) {
-			console.error(e);
-		}
+        try {
+            this._onNext(value);
+        } catch(e) {
+            console.error(e);
+        }
     }
 
     public error(err: Error): void {
-		const cb = this._onError;
+        const cb = this._onError;
         if(this._close()) return;
-		try {
-			cb(err);
-		} catch(e) {
-			console.error(e);
-		}
+        try {
+            cb(err);
+        } catch(e) {
+            console.error(e);
+        }
     }
 
     public complete(): void {
-		const cb = this._onComplete;
+        const cb = this._onComplete;
         if(this._close()) return;
-		try {
-			cb();
-		} catch(e) {
-			console.error(e);
+        try {
+            cb();
+        } catch(e) {
+            console.error(e);
         }
     }
 
@@ -98,7 +98,7 @@ export class Observable<T> implements ObservableLike<T> {
 
     public subscribe(observer: Observer<T>): Subscription;
 
-    subscribe(
+    public subscribe(
         obs?: ((value: T) => void) | Observer<T>,
         onError?: (error: Error) => void,
         onComplete?: () => void
@@ -162,87 +162,85 @@ export function single<T>(value: T): Observable<T> {
     });
 }
 
-export function first<T>(obs: ObservableLike<T>): Promise<T | undefined>;
-export function first<T>(obs: ObservableLike<PromiseLike<T>>): Promise<T | undefined>;
+export function first<T>(obs: ObservableLike<T> | ObservableLike<PromiseLike<T>>): Promise<T | undefined>;
 export function first<T, U>(obs: ObservableLike<T | PromiseLike<U>>): Promise<T | U | undefined>;
 
-export function first<T>(obs: ObservableLike<T>): Promise<T | undefined> {
-	return new Promise((resolve, reject) => {
-		const subs = obs.subscribe(
-			(value) => {
-				resolve(value);
-				subs.stop();
-			},
-			(err) => reject(err),
-			() => resolve(undefined),
-		);
+export function first<T,U>(obs: ObservableLike<T | PromiseLike<U>>): Promise<T | U | undefined> {
+    return new Promise((resolve, reject) => {
+        const subs = obs.subscribe(
+            (value) => {
+                resolve(value);
+                subs.stop();
+            },
+            (err) => reject(err),
+            () => resolve(undefined),
+        );
         subs.start();
-	});
+    });
 }
 
-export function last<T>(obs: ObservableLike<T>): Promise<T | undefined>;
-export function last<T>(obs: ObservableLike<PromiseLike<T>>): Promise<T | undefined>;
+export function last<T>(obs: ObservableLike<T> | ObservableLike<PromiseLike<T>>): Promise<T | undefined>;
 export function last<T, U>(obs: ObservableLike<T | PromiseLike<U>>): Promise<T | U | undefined>;
 
-export function last<T>(obs: ObservableLike<T>): Promise<T | undefined> {
-	let val: T | undefined;
+export function last<T,U>(obs: ObservableLike<T | PromiseLike<U>>): Promise<T | U | undefined> {
+    let val: T | PromiseLike<U> | undefined;
 
-	return new Promise((resolve, reject) => {
-		obs.subscribe(
-			(value) => {
-				val = value;
-			},
-			(err) => reject(err),
-			() => resolve(val),
-		).start();
-	});
+    return new Promise((resolve, reject) => {
+        obs.subscribe(
+            (value) => {
+                val = value;
+            },
+            (err) => reject(err),
+            () => resolve(val),
+        ).start();
+    });
 }
 
 export function map<T, U>(obs: ObservableLike<T>, f: (val: T) => U): Observable<U> {
-	return new Observable<U>((sink) => {
-		const subs = obs.subscribe(
-			(val: T) => {
-				let val2: U;
-				try {
-					val2 = f(val);
-				} catch(e) {
-					sink.error(e);
-					return;
-				}
-				sink.next(val2);
-			},
-			(e) => sink.error(e),
-			() => sink.complete(),
-		);
+    return new Observable<U>((sink) => {
+        const subs = obs.subscribe(
+            (val: T) => {
+                let val2: U;
+                try {
+                    val2 = f(val);
+                } catch(e) {
+                    sink.error(e);
+                    return;
+                }
+                sink.next(val2);
+            },
+            (e) => sink.error(e),
+            () => sink.complete(),
+        );
         subs.start();
-		return () => subs.stop();
-	});
+        return () => subs.stop();
+    });
 }
 
 export function filter<T>(obs: ObservableLike<T>, f: (val: T) => boolean): Observable<T> {
-	return new Observable<T>((sink) => {
-		const subs = obs.subscribe(
-			(val: T) => {
-				let ok: boolean;
-				try {
-					ok = f(val);
-				} catch(e) {
-					sink.error(e);
-					return;
-				}
+    return new Observable<T>((sink) => {
+        const subs = obs.subscribe(
+            (val: T) => {
+                let ok: boolean;
+                try {
+                    ok = f(val);
+                } catch(e) {
+                    sink.error(e);
+                    return;
+                }
                 if(ok) sink.next(val);
-			},
-			(e) => sink.error(e),
-			() => sink.complete(),
-		);
+            },
+            (e) => sink.error(e),
+            () => sink.complete(),
+        );
         subs.start();
-		return () => subs.stop();
-	});
+        return () => subs.stop();
+    });
 }
 
 export function switchMap<T, U>(obs: ObservableLike<T>, f: (val: T) => ObservableLike<U>): Observable<U> {
     return new Observable((sink) => {
-        let sub1: Subscription | undefined = undefined;
+        let sub1: Subscription | undefined;
         const sub = obs.subscribe((v_out) => {
             if(sub1 !== undefined) {
                 sub1.stop();
@@ -290,27 +288,26 @@ export function switchMap<T, U>(obs: ObservableLike<T>, f: (val: T) => Observabl
 }
 
 export function refresh<T>(f: () => Promise<T>, period: number): Observable<T> {
-	return new Observable<T>((sink) => {
+    return new Observable<T>((sink) => {
         let tm: number | undefined;
-        const refresh = () => {
+        const cb = () => {
             tm = undefined;
             f().then((v) => {
                 if(sink.closed) return;
                 sink.next(v);
-                tm = self.setTimeout(refresh, period);
+                tm = self.setTimeout(cb, period);
             });
         };
-        tm = self.setTimeout(refresh, 0);
+        tm = self.setTimeout(cb, 0);
         return () => {
             if(tm !== undefined) self.clearTimeout(tm);
         };
     });
-        
 }
 
-const NoValue = {"": "NoValue"};
-const HasValue = {"": "HasValue"};
-const Complete = {"": "Complete"};
+const stNoValue = {};
+const stHasValue = {};
+const stComplete = {};
 
 export class Subject<T> extends Observable<T> implements SubscriptionObserver<T> {
     private _state: any;
@@ -319,16 +316,16 @@ export class Subject<T> extends Observable<T> implements SubscriptionObserver<T>
 
     constructor(initial?: T) {
         super((subscriber) => {
-			const subs = this._subs;
+            const subs = this._subs;
             const obj: [number, SubscriptionObserver<T>] = [subs.length, subscriber];
-			if(subs.length === 0) this.onAttach();
+            if(subs.length === 0) this.onAttach();
             subs.push(obj);
 
-			const st = this._state;
-            if(st === HasValue) {
+            const st = this._state;
+            if(st === stHasValue) {
                 subscriber.next(this._value!);
-            } else if(st !== NoValue) {
-                if(st === Complete) {
+            } else if(st !== stNoValue) {
+                if(st === stComplete) {
                     subscriber.complete();
                 } else {
                     subscriber.error(st);
@@ -344,10 +341,10 @@ export class Subject<T> extends Observable<T> implements SubscriptionObserver<T>
                         const lastval = subs.pop()!;
                         lastval[0] = i;
                         subs[i] = lastval;
-					} else {
-						subs.pop();
-					}
-					if(subs.length === 0) this.onDetach();
+                    } else {
+                        subs.pop();
+                    }
+                    if(subs.length === 0) this.onDetach();
                 }
             };
         });
@@ -355,44 +352,44 @@ export class Subject<T> extends Observable<T> implements SubscriptionObserver<T>
         this._value = initial;
 
         if(arguments.length >= 1) {
-            this._state = HasValue;
-		} else {
-			this._state = NoValue;
-		}
+            this._state = stHasValue;
+        } else {
+            this._state = stNoValue;
+        }
     }
 
     get value(): T {
         const st = this._state;
-        if(st !== HasValue) {
-            if(st === NoValue || st === Complete) throw new TypeError("No data available");
+        if(st !== stHasValue) {
+            if(st === stNoValue || st === stComplete) throw new TypeError("No data available");
             throw st;
         }
         return this._value!;
     }
 
     get closed(): boolean {
-		const st = this._state;
-		return st !== NoValue && st !== HasValue;
+        const st = this._state;
+        return st !== stNoValue && st !== stHasValue;
     }
 
-	public next(value: T) {
-		const st = this._state;
-        if(st !== HasValue) {
-            if(st !== NoValue) return;
-            this._state = HasValue;
+    public next(value: T) {
+        const st = this._state;
+        if(st !== stHasValue) {
+            if(st !== stNoValue) return;
+            this._state = stHasValue;
         }
-		this._value = value;
-		for(const obj of this._subs) {
-			obj[1].next(value);
-		}
-	}
+        this._value = value;
+        for(const obj of this._subs) {
+            obj[1].next(value);
+        }
+    }
 
     public error(err: Error) {
-		const st = this._state;
-		if(st !== NoValue && st !== HasValue) return;
-		this._state = err;
-		this._value = undefined;
-		const subs = this._subs;
+        const st = this._state;
+        if(st !== stNoValue && st !== stHasValue) return;
+        this._state = err;
+        this._value = undefined;
+        const subs = this._subs;
         if(subs.length !== 0) {
             this.onDetach();
             for(const obj of subs) {
@@ -404,11 +401,11 @@ export class Subject<T> extends Observable<T> implements SubscriptionObserver<T>
     }
 
     public complete() {
-		const st = this._state;
-		if(st !== NoValue && st !== HasValue) return;
-		this._state = Complete;
-		this._value = undefined;
-		const subs = this._subs;
+        const st = this._state;
+        if(st !== stNoValue && st !== stHasValue) return;
+        this._state = stComplete;
+        this._value = undefined;
+        const subs = this._subs;
         if(subs.length !== 0) {
             this.onDetach();
             for(const obj of subs) {
@@ -422,8 +419,8 @@ export class Subject<T> extends Observable<T> implements SubscriptionObserver<T>
     protected isEmpty(): boolean {
         return this._subs.length === 0;
     }
-	protected onAttach(): void {}
-	protected onDetach(): void {}
+    protected onAttach(): void {}
+    protected onDetach(): void {}
 }
 
 export class Cache<T> extends Subject<T> {

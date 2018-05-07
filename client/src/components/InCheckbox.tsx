@@ -1,4 +1,4 @@
-import * as React from 'react'
+import * as React from "react";
 
 import "./Input.css";
 
@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default class InCheckbox extends React.Component<Props> {
-    render() {
+    public render() {
         const {className, name, value, onChange, children} = this.props;
 
         return <label className={(className || "") + " Input InCheckbox"}>

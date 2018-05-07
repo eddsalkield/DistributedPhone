@@ -1,9 +1,9 @@
-import * as React from 'react'
+import * as React from "react";
 
 import "./Loading.css";
 
 export default class FormError extends React.Component {
-    render() {
+    public render() {
         return <div className="Loading">Loading...</div>;
     }
 }

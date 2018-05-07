@@ -61,7 +61,7 @@ export class MockClientState implements ClientState {
         });
     }
 
-    public signUp(username: string, password:string): Promise<void> {
+    public signUp(username: string, password: string): Promise<void> {
         return this.login(username, "a");
     }
 }
@@ -81,28 +81,28 @@ export class MockUser implements User {
     public readonly projects = new Subject(new Map([
         {
             id: "proj1",
-            title : 'Project Title 1',
-            description: 'description1'
+            title : "Project Title 1",
+            description: "description1",
         }, {
             id: "proj2",
-            title : 'Project Title 2',
-            description: 'description2'
+            title : "Project Title 2",
+            description: "description2",
         }, {
             id: "proj3",
-            title : 'Project Title 3',
-            description: 'description3'
+            title : "Project Title 3",
+            description: "description3",
         }, {
             id: "proj4",
-            title : 'Project Title 4',
-            description: 'description4'
+            title : "Project Title 4",
+            description: "description4",
         }, {
             id: "proj5",
-            title : 'Project Title 5',
-            description: 'description5'
+            title : "Project Title 5",
+            description: "description5",
         }].map((p): [string, Project] => [p.id, p]),
     ));
 
-    readonly overview = new Subject(["This is a mock"]);
+    public readonly overview = new Subject(["This is a mock"]);
 
     public logout(): Promise<void> {
         this.st.user.next(null);
@@ -112,7 +112,7 @@ export class MockUser implements User {
         return Promise.resolve();
     }
 
-    updateSettings(upd: Partial<Settings>): void {}
-    setProjectOn(name: string): void {}
-    setProjectOff(name: string): void {}
+    public updateSettings(upd: Partial<Settings>): void {}
+    public setProjectOn(name: string): void {}
+    public setProjectOff(name: string): void {}
 }

@@ -29,40 +29,43 @@ export default class Navbar extends React.Component<Props, State> {
         this.subs = [];
     }
 
-    componentDidMount() {
+    public componentDidMount() {
         for(const s of this.subs) s.start();
     }
 
-    componentWillUnmount() {
+    public componentWillUnmount() {
         for(const s of this.subs) s.stop();
     }
 
-    onToggle = (e: React.FormEvent<HTMLInputElement>) => {
+    private onToggle = (e: React.FormEvent<HTMLInputElement>) => {
         this.setState({visible: (e.target as HTMLInputElement).checked});
-    };
+    }
 
-    onNav = () => {
+    private onNav = () => {
         this.setState({visible: false});
-    };
+    }
 
-    onStop = () => {
+    private onStop = () => {
         this.props.user.stop().then(() => {
             // TODO
         });
-    };
+    }
 
-    onLogout = () => {
-        this.setState({logging_out: true})
+    private onLogout = () => {
+        this.setState({logging_out: true});
         this.props.user.logout().catch((e) => {
             this.setState({logging_out: false});
             // TODO: handle
         });
-    };
+    }
 
-    render() {
+    public render() {
         return <div className="Navbar">
             <div className="Navbar-header">
-                <input type="checkbox" className="Navbar-button" checked={this.state.visible} onChange={this.onToggle} />
+                <input
+                    type="checkbox" className="Navbar-button"
+                    checked={this.state.visible} onChange={this.onToggle}
+                />
                 <span>Hello, {this.props.user.username}</span>
             </div>
             <div className={"Navbar-menu" + (this.state.visible ? " visible" : "")}>

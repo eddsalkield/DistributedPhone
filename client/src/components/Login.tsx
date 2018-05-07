@@ -1,4 +1,4 @@
-import * as React from "react"
+import * as React from "react";
 
 import * as api from "../API";
 
@@ -29,16 +29,16 @@ export default class Login extends React.Component<Props, State> {
             signingUp: false,
             loggingIn: false,
             loggingInAsGuest: false,
-            loginError: null,  
-            signUpError: null,  
-        }
+            loginError: null,
+            signUpError: null,
+        };
     }
 
-    onSignUp = (data: FormData) => {
+    private onSignUp = (data: FormData) => {
         const password = data["password"] as string;
         if(data["password2"] !== password) {
             this.setState({
-                signUpError: "Passwords do not match"
+                signUpError: "Passwords do not match",
             });
             return;
         }
@@ -49,13 +49,13 @@ export default class Login extends React.Component<Props, State> {
         }, (e) => {
             this.setState({
                 signingUp: false,
-                signUpError: e.message
+                signUpError: e.message,
             });
         });
-    };
+    }
 
-    onLogin = (data: FormData) => {
-        this.setState({loginError: null, loggingIn: true})
+    private onLogin = (data: FormData) => {
+        this.setState({loginError: null, loggingIn: true});
         this.props.controller.login(data["email"] as string, data["password"] as string).finally(() => {
         }).then(() => {
             // nop?
@@ -65,10 +65,10 @@ export default class Login extends React.Component<Props, State> {
                 loginError: e.message,
             });
         });
-    };
+    }
 
-    onGuestLogin = () => {
-        this.setState({loginError: null, loggingInAsGuest: true})
+    private onGuestLogin = () => {
+        this.setState({loginError: null, loggingInAsGuest: true});
         this.props.controller.loginGuest().finally(() => {
             // nop?
         }).catch((e) => {
@@ -77,13 +77,13 @@ export default class Login extends React.Component<Props, State> {
                 signUpError: e.message,
             });
         });
-    };
+    }
 
-    setLogin = () => {
+    private setLogin = () => {
         this.setState({isSignUp: false});
-    };
+    }
 
-    render() {
+    public render() {
         return <div className="Login">
             <h1>Put your Phone to Work</h1>
             <div className="section-split"><span>Will <em>you</em> join your phone to our botnet?</span></div>
