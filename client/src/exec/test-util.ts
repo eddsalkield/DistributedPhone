@@ -87,7 +87,7 @@ export function withStat<T>(f: (s: stat.Sink) => Promise<T>): Promise<T> {
 }
 
 export function withRunner<T>(the_api: MockAPI, the_storage: Storage, func: (r: Runner) => Promise<T>): Promise<T> {
-    return withStat((the_stat) => Runner.create(the_stat, the_api, the_storage).then((r) => {
+    return withStat((the_stat) => Runner.create(the_stat, the_api, the_storage, "test@invalid").then((r) => {
         return Promise.resolve(r).then(func).finally(() => r.stop());
     }));
 }

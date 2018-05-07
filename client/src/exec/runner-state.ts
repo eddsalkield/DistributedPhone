@@ -18,6 +18,7 @@ export interface TaskData {
 }
 
 export interface RunnerData {
+    state_key: string;
     tasks: TaskData[];
 }
 
@@ -31,10 +32,12 @@ export function loadState(data: Uint8Array): RunnerData {
         if(key === null) break;
 
         if(key === "tasks") d.tasks = cbut.readArray(r, readTaskData);
+        else if(key === "state_key") d.state_key = r.string();
         else r.skip();
     }
     r.end();
 
+    if(d.state_key === undefined) throw new TypeError("Missing RunnerData.state_key");
     if(d.tasks === undefined) throw new TypeError("Missing RunnerData.tasks");
 
     return d as RunnerData;
@@ -107,7 +110,9 @@ function writeTaskData(w: cbor.Writer, d: TaskData): void {
 
 export function dumpState(d: RunnerData): Uint8Array {
     const w = new cbor.Writer();
-    w.map(1);
+    w.map(2);
+    w.string("state_key");
+    w.string(d.state_key);
     w.string("tasks");
     cbut.writeArray(w, writeTaskData, d.tasks);
     w.end();

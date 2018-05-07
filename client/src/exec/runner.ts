@@ -76,12 +76,12 @@ class Task {
 const worker_blob: Blob = new Blob([worker_text], {type: "text/javascript"});
 
 export default class Runner {
-    private readonly st_pending = new stat.Metric<number>("Runner/tasks_pending").attach(this.st);
-    private readonly st_blocked = new stat.Metric<number>("Runner/tasks_blocked").attach(this.st);
-    private readonly st_running = new stat.Metric<number>("Runner/tasks_running").attach(this.st);
-    private readonly st_finished = new stat.Metric<number>("Runner/tasks_finished").attach(this.st);
-    private readonly st_sending = new stat.Metric<number>("Runner/tasks_sending").attach(this.st);
-    private readonly st_sent = new stat.Counter("Runner/tasks_sent").attach(this.st);
+    private readonly st_pending = new stat.Metric("runner/tasks_pending").attach(this.st);
+    private readonly st_blocked = new stat.Metric("runner/tasks_blocked").attach(this.st);
+    private readonly st_running = new stat.Metric("runner/tasks_running").attach(this.st);
+    private readonly st_finished = new stat.Metric("runner/tasks_finished").attach(this.st);
+    private readonly st_sending = new stat.Metric("runner/tasks_sending").attach(this.st);
+    private readonly st_sent = new stat.Counter("runner/tasks_sent").attach(this.st);
 
     private readonly dispatcher = new wd.Dispatcher(this.st, worker_blob);
 
@@ -118,12 +118,18 @@ export default class Runner {
     private constructor(
         private readonly st: stat.Sink,
         private readonly provider: api.WorkProvider,
-        public readonly repo: BlobRepo
+        public readonly repo: BlobRepo,
+        private readonly state_key: string
     ) {}
 
-    public static create(st: stat.Sink, provider: api.WorkProvider, storage: Storage): Promise<Runner> {
+    public static create(
+        st: stat.Sink,
+        provider: api.WorkProvider,
+        storage: Storage,
+        state_key: string
+    ): Promise<Runner> {
         return BlobRepo.create(st, provider, storage).then((repo) => repo.readState("runner").then((data) => {
-            const r = new Runner(st, provider, repo);
+            const r = new Runner(st, provider, repo, state_key);
             if(data !== null) {
                 try {
                     r.load(data);
@@ -246,8 +252,10 @@ export default class Runner {
             this.addTaskSet(tasks);
             this.request_tasks_backoff.succeed();
         }).catch((e: Error) => {
-            this.request_tasks_backoff.fail();
-            this.st.reportError(e);
+            if(!(e instanceof err.Cancelled)) {
+                this.request_tasks_backoff.fail();
+                this.st.reportError(e);
+            }
         }).finally(() => {
             this.requesting_tasks = false;
             if(this.partStop()) return;
@@ -360,8 +368,10 @@ export default class Runner {
                 this.tasks_sending.delete(t);
                 this.tasks_finished.insertFront(t);
             }
-            this.st.reportError(e);
-            this.send_results_backoff.fail();
+            if(!(e instanceof err.Cancelled)) {
+                this.send_results_backoff.fail();
+                this.st.reportError(e);
+            }
             this.report();
         }).finally(() => {
             this.sending_results = false;
@@ -537,6 +547,7 @@ export default class Runner {
 
     public data(): rs.RunnerData {
         return {
+            state_key: this.state_key,
             tasks: Array.from(this.tasks.values()).map((t) => t.data()),
         };
     }
@@ -580,6 +591,11 @@ export default class Runner {
             });
         }
 
+        if(d.state_key !== this.state_key) {
+            // State key changed, ignore state.
+            return;
+        }
+
         const tasks: Task[] = [];
         const pinned: Ref[] = [];
 
@@ -612,6 +628,24 @@ export default class Runner {
             } else {
                 this.tasks_finished.enqueue(task);
             }
+        }
+    }
+
+    private _unpause: (() => void) | null = null;
+    public get paused(): boolean {
+        return this._unpause !== null;
+    }
+    public set paused(v: boolean) {
+        if(v) {
+            if(this._unpause !== null) return;
+            this.dispatcher.pause(new Promise<void>((resolve,reject) => {
+                this._unpause = resolve;
+            }));
+        } else {
+            const cb = this._unpause;
+            if(cb === null) return;
+            this._unpause = null;
+            return;
         }
     }
 }

@@ -54,9 +54,8 @@ export default class IDBStorage implements Storage {
         });
     }
 
-    public stop(): Promise<void> {
+    public stop(): void {
         this.db.close();
-        return Promise.resolve();
     }
 
     public list(): Promise<Ref[]> {

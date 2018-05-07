@@ -1,0 +1,33 @@
+.FormError {
+	font-weight: bold;
+	display: flex;
+	align-items: center;
+}
+
+.FormError.FormError-error > span {
+	color: #f00;
+}
+
+.Form-large .FormError {
+	height: 1em;
+}
+
+.Form-large .FormError.FormError-error {
+	padding: 0.5em;
+	height: 4em;
+}
+
+.Form-large .Input {
+	height: 4em;
+	border: 1px solid #ccc;
+	padding: 0em 1em;
+}
+
+.Form-large .Input + .Input {
+	border-top-color: transparent;
+	margin-top: -1px;
+}
+
+.Form-large .InCheckbox > input::after {
+	width: 4em;
+}

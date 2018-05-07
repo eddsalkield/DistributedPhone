@@ -2,13 +2,11 @@
 
 import * as err from "./err";
 
-export type Scalar = string | number | boolean;
-
 export declare interface Key {
-    readonly [k: string]: Scalar;
+    readonly [k: string]: string | boolean;
 }
 
-export type Point = [string, Key, Scalar];
+export type Point = [string, Key, number];
 
 export interface TSDB {
     writeError(ts: number, data: err.Data): void;
@@ -56,7 +54,7 @@ export class Root implements Sink {
         this.children_dirty.clear();
         this._dirty = false;
 
-        const data: Array<[string, Key, Scalar]> = [];
+        const data: Array<[string, Key, number]> = [];
         for(const c of cld) {
             if(c.value === undefined) continue;
             data.push([c.name, c.root_key!, c.value]);
@@ -148,7 +146,7 @@ class Child implements Base {
     }
 }
 
-export class Metric<T extends Scalar = Scalar> extends Child {
+export class Metric extends Child {
     public readonly name: string;
 
     constructor(name: string, key?: Key) {
@@ -156,13 +154,13 @@ export class Metric<T extends Scalar = Scalar> extends Child {
         this.name = name;
     }
 
-    private _value: T | undefined;
+    private _value: number | undefined;
 
-    public get value(): T | undefined {
+    public get value(): number | undefined {
         return this._value;
     }
 
-    public set(v: T): void {
+    public set(v: number): void {
         if(this._value !== v) {
             this._value = v;
             this._touch();
@@ -216,7 +214,7 @@ export class Group extends Child implements Sink {
     }
 }
 
-export class Counter extends Metric<number> {
+export class Counter extends Metric {
     constructor(name: string, key?: Key) {
         super(name, key);
         this.reset();
