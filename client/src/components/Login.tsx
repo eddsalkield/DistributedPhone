@@ -96,8 +96,13 @@ export default class Login extends React.Component<Props, State> {
                     <FormError error={this.state.signUpError} />
                     <Button type="submit">Sign Up</Button>
                     <Button type="button" onClick={this.onGuestLogin}>Enter as guest</Button>
-                    <label className="Input">
-                        <div>Already have an account? <a onClick={this.setLogin}>Log in</a></div>
+                    <label className="Input Login-Links">
+                        <div>
+                            Already have an account? <a onClick={this.setLogin}>Log in</a>
+                        </div>
+                        <div>
+                            App misbehaving? <a onClick={() => this.props.controller.reset()}>Reset</a>
+                        </div>
                     </label>
                 </Form>
             :

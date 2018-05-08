@@ -5,3 +5,7 @@
 .Login > h1 {
 	text-align: center;
 }
+
+.Login-Links > div {
+	margin-right: 1em;
+}

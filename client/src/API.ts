@@ -43,6 +43,7 @@ export interface ClientState {
     login(username: string, password: string): Promise<void>;
     loginGuest(): Promise<void>;
     signUp(username: string, password: string): Promise<void>;
+    reset(): Promise<void>;
 }
 
 export class MockClientState implements ClientState {
@@ -74,6 +75,10 @@ export class MockClientState implements ClientState {
 
     public signUp(username: string, password: string): Promise<void> {
         return this.login(username, "a");
+    }
+
+    public reset(): Promise<void> {
+        return Promise.resolve();
     }
 }
 

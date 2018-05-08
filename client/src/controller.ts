@@ -245,11 +245,15 @@ class WorkProvider implements exec_api.WorkProvider {
     private _paused: boolean = false;
     private _stopped: boolean = false;
 
+    private readonly cfg: obs.Cache<Settings>;
+
     constructor(
         private readonly ctl: Controller,
-        private readonly cfg: obs.Observable<Settings>,
+        cfg: obs.Observable<Settings>,
         private readonly token: string,
-    ) {}
+    ) {
+        this.cfg = new obs.Cache(cfg);
+    }
 
     public get paused() {
         return this._paused;
@@ -268,6 +272,7 @@ class WorkProvider implements exec_api.WorkProvider {
     }
 
     public stop(): void {
+        this.cfg.complete();
         this._stopped = true;
         this.paused = false;
     }
@@ -379,7 +384,7 @@ class WorkProvider implements exec_api.WorkProvider {
                     }, 5000);
                     const fin = () => {
                         self.clearTimeout(tm);
-                        resolve({tasks: []});
+                        resolve({tasks: tasks});
                         sub.stop();
                     };
                     const sub = this.cfg.subscribe(undefined, fin, fin);
@@ -517,8 +522,6 @@ export class User implements ui_api.User {
         req.string(this.token);
         req.end();
 
-        this.settings.complete();
-
         return Promise.all([
             this.stop(),
             this.ctl.request("logout", {
@@ -580,8 +583,8 @@ export class User implements ui_api.User {
                     return {
                         runner: r,
                         stop() {
-                            wp.stop();
                             for(const sub of subs) sub.stop();
+                            wp.stop();
                             return r.stop().finally(() => {
                                 storage.stop();
                             });
@@ -796,5 +799,9 @@ export class UIState implements ui_api.ClientState {
             // Hope login succeeds.
             return this.login(username, password);
         });
+    }
+
+    public reset(): Promise<void> {
+        return this.ctl.reset();
     }
 }

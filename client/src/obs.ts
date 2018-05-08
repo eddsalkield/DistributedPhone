@@ -447,6 +447,12 @@ export class Cache<T> extends Subject<T> {
         }
     }
 
+    public reset(): void {
+        if(this._src_sub === null) return;
+        this.onDetach();
+        this.onAttach();
+    }
+
     protected onAttach(): void {
         if(this._src === null) return;
         if(this._src_sub !== null) return;
