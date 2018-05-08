@@ -27,8 +27,8 @@
 	background-color: #ccc;
 }
 
-.Navbar.Navbar-visible .Navbar-button {
-	background-color: #ff8;
+.Navbar.Navbar-visible .Navbar-button > div {
+	background-color: #777;
 }
 
 .Navbar-overlay {

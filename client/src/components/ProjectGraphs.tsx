@@ -187,13 +187,13 @@ export default class ProjectGraphs extends React.Component<Props, State> {
         return <div className="Main ProjectGraphs">
             <h2>{project_data.title}</h2>
             <p>{project_data.description}</p>
-            {error === null ? [
-                <Chart options={this.chart1} serial={serial} />,
-                <Chart options={this.chart2} serial={serial} />,
-            ] : [
-                <span className="ProjectGraphs-error">error</span>,
+            {error === null ? <React.Fragment>
+                <Chart options={this.chart1} serial={serial} />
+                <Chart options={this.chart2} serial={serial} />
+            </React.Fragment> : <React.Fragment>
+                <span className="ProjectGraphs-error">error</span>
                 <a onClick={() => this.reset()}>Retry</a>
-            ]}
+            </React.Fragment>}
         </div>;
     }
 }

@@ -5,7 +5,7 @@
 }
 
 .Button, .InText > input, .InCheckbox > input {
-	outline: none;
+	outline: 0;
 	background-color: transparent;
 	appearance: none;
 	-moz-appearance: none;

@@ -49,8 +49,12 @@ export default class Navbar extends React.Component<Props, State> {
 
     private onStop = () => {
         this.props.user.stop().then(() => {
-            // TODO
+            this.setState({visible: false});
         });
+    }
+
+    private onMenuClick = (ev: React.MouseEvent<HTMLElement>) => {
+        ev.stopPropagation();
     }
 
     private onLogout = () => {
@@ -71,7 +75,7 @@ export default class Navbar extends React.Component<Props, State> {
                 </Button>
                 <span>Hello, {this.props.user.username}</span>
             </div>
-            <div className="Navbar-overlay" onClick={this.onNav}><div className="Navbar-menu-box"><div className="Navbar-menu">
+            <div className="Navbar-overlay" onClick={this.onNav}><div className="Navbar-menu-box"><div className="Navbar-menu" onClick={this.onMenuClick} >
                 <Link to="/" onClick={this.onNav}>Overview</Link>
                 <Link to="/projects" onClick={this.onNav}>Projects</Link>
                 <Link to="/settings" onClick={this.onNav}>Settings</Link>
