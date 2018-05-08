@@ -217,6 +217,9 @@ export function map<T, U>(obs: ObservableLike<T>, f: (val: T) => U): Observable<
     });
 }
 
+export function filter<T>(obs: ObservableLike<T>, f: (val: T) => boolean): Observable<T>;
+export function filter<T extends U, U>(obs: ObservableLike<U>, f: (val: U) => val is T): Observable<T>;
+
 export function filter<T>(obs: ObservableLike<T>, f: (val: T) => boolean): Observable<T> {
     return new Observable<T>((sink) => {
         const subs = obs.subscribe(
@@ -296,6 +299,8 @@ export function refresh<T>(f: () => Promise<T>, period: number): Observable<T> {
                 if(sink.closed) return;
                 sink.next(v);
                 tm = self.setTimeout(cb, period);
+            }, (e) => {
+                sink.error(e);
             });
         };
         tm = self.setTimeout(cb, 0);

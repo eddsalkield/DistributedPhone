@@ -4,6 +4,6 @@ import "./Loading.css";
 
 export default class FormError extends React.Component {
     public render() {
-        return <div className="Loading">Loading...</div>;
+        return <div className="Main Loading">Loading...</div>;
     }
 }

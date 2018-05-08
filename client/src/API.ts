@@ -12,6 +12,15 @@ export interface Settings {
     projects: string[];
 }
 
+export interface GraphPoint {
+    x: number;
+    y: number;
+}
+
+export interface Graphs {
+    [name: string]: GraphPoint[];
+}
+
 export interface User {
     readonly username: string;
     readonly settings: Observable<Settings>;
@@ -24,6 +33,7 @@ export interface User {
     updateSettings(upd: Partial<Settings>): void;
     setProjectOn(name: string): void;
     setProjectOff(name: string): void;
+    requestGraphs(query: string): Promise<Graphs>;
 }
 
 export interface ClientState {
@@ -115,4 +125,7 @@ export class MockUser implements User {
     public updateSettings(upd: Partial<Settings>): void {}
     public setProjectOn(name: string): void {}
     public setProjectOff(name: string): void {}
+    public requestGraphs(query: string): Promise<Graphs> {
+        return Promise.resolve({});
+    }
 }

@@ -1,4 +1,5 @@
 import * as React from "react";
+import {Link} from "react-router-dom";
 
 import * as obs from "@/obs";
 
@@ -65,7 +66,7 @@ export default class Projects extends React.Component<Props, State> {
             return <Loading />;
         }
 
-        return <div className="Projects">
+        return <div className="Main Projects">
             <h2>Projects</h2>
             {projects.map((p) => <Project key={p.id} data={p} enabled={enabled.has(p.id)} onSet={this.onSet} />)}
         </div>;
@@ -89,6 +90,7 @@ class Project extends React.Component<ProjProps> {
             <InCheckbox value={this.props.enabled} onChange={this.onChange}>
                 <h4>{p.title}</h4>
             </InCheckbox>
+            <Link to={`/project/${p.id}`}>Project stats</Link>
             <p>{p.description}</p>
         </div>;
     }

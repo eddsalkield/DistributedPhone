@@ -2,3 +2,9 @@
 	display: block;
 	position: relative;
 }
+
+.Main {
+	padding: 1em;
+	overflow-y: auto;
+	max-height: calc(100% - 4em);
+}

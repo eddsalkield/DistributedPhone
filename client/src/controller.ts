@@ -157,8 +157,31 @@ export class Controller {
                 });
             }
             return res.arrayBuffer();
-        }).then((resp) => {
-            return resp;
+        });
+    }
+
+    public requestGraphs(query: string): Promise<ui_api.Graphs> {
+        const headers = new Headers();
+        const url = `${this.url}getGraphs?${query}`;
+        return fetch(url, {
+            method: "POST",
+            body: null,
+            headers: headers,
+            mode: "cors",
+            credentials: "omit",
+            cache: "no-store",
+            redirect: "follow",
+        }).then((res) => {
+            if(!res.ok) {
+                throw new err.Network("HTTP error", {
+                    url: url,
+                    http_code: res.status,
+                });
+            }
+            return res.json();
+        }).then((v) => {
+            if(!v.success) throw new err.Network(v.error);
+            return v.graphs;
         });
     }
 }
@@ -441,10 +464,10 @@ export class User implements ui_api.User {
     ) {
         this.settings = new obs.Subject(settings);
 
-        this.projects.attach(obs.refresh(
-            () => this.requestProjects(),
+        this.projects.attach(obs.filter<Map<string,Project>, Map<string,Project> | null>(obs.refresh(
+            () => this.requestProjects().catch((e) => null),
             3600 * 1000
-        ));
+        ), (v): v is Map<string,Project> => v !== null));
 
         this.as_json = new obs.Cache(obs.map(this.settings, (s) => {
             return JSON.stringify({
@@ -627,6 +650,10 @@ export class User implements ui_api.User {
                 projects: [name].concat(c.projects),
             });
         });
+    }
+
+    public requestGraphs(query: string): Promise<ui_api.Graphs> {
+        return this.ctl.requestGraphs(query);
     }
 
     public setProjectOff(name: string): void {
