@@ -16,7 +16,7 @@ interface Props {
 
 export class Chart extends React.Component<Props> {
     private canvas: HTMLCanvasElement | null;
-    private chart: chartjs | null;
+    private chart: chartjs.Chart | null;
 
     private upd: boolean = false;
     private upd_reset: boolean = false;

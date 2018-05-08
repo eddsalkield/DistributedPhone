@@ -4,7 +4,6 @@
     "lint": "yarn run tslint --project tsconfig-dom.json && yarn run tslint --project tsconfig-worker.json"
   },
   "dependencies": {
-    "@types/chart.js": "^2.7.15",
     "chart.js": "^2.7.2",
     "double-ended-queue": "*",
     "react": "^16.3.2",
