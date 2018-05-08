@@ -10,7 +10,9 @@ import App from "./App";
 
 import "./index.css";
 
-const ctl = new Controller("http://35.178.90.246/api/", new Device());
+const url = process.env.NODE_ENV === "production" ? "/api/" : "http://35.178.90.246/api/";
+
+const ctl = new Controller(url, new Device());
 
 const uictl = new UIState(ctl);
 
