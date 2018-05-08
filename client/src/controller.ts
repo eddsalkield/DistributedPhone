@@ -281,7 +281,7 @@ class WorkProvider implements exec_api.WorkProvider {
         return new Promise((resolve, reject) => {
             const f = () => {
                 if(this._stopped) {
-                    reject(new err.Cancelled("Stopping WorkProvider"));
+                    reject(new err.Network("Stopping WorkProvider"));
                     return;
                 }
                 try {
