@@ -5,7 +5,7 @@ import * as obs from "@/obs";
 import * as api from "../API";
 
 import Loading from "./Loading";
-import {Chart, ChartConfiguration} from "./Chart";
+import {Chart, ChartConfiguration, ChartPoint} from "./Chart";
 
 import "./ProjectGraphs.css";
 
@@ -18,12 +18,13 @@ interface State {
     serial: number;
     error: string | null;
     project_data?: api.Project | null;
+    custom_charts: Array<[string, ChartConfiguration]>;
 }
 
-function flatLine(data: api.GraphPoint[]): api.GraphPoint[] {
+function flatLine(data: ChartPoint[]): ChartPoint[] {
 	var d = new Date();
 	// Update to current time only if falling behind
-	if (d.getTime() > data[data.length-1].x) {
+	if (d.getTime() > data[data.length-1].x!) {
 		data.push({
             x: d.getTime(),
             y: data[data.length-1].y,
@@ -114,6 +115,8 @@ export default class ProjectGraphs extends React.Component<Props, State> {
         this.state = {
             serial: 0,
             error: null,
+            project_data: undefined,
+            custom_charts: [],
         };
         this.subs = [];
     }
@@ -124,6 +127,7 @@ export default class ProjectGraphs extends React.Component<Props, State> {
         this.setState({
             error: null,
             project_data: undefined,
+            custom_charts: [],
         });
 
         this.subs = [
@@ -142,6 +146,20 @@ export default class ProjectGraphs extends React.Component<Props, State> {
                 this.chart2.data!.datasets![2].data = flatLine(graphs.tasksFailed);
 
                 this.setState((st) => ({serial: st.serial + 1}));
+            }, (e) => {
+                this.setState({error: e.message});
+                // Handle error here
+            }),
+            obs.refresh(() => {
+                return this.props.user.requestGraphs(
+                    `pname=${encodeURIComponent(this.props.project)}`
+                    + `&prec=1`
+                    + `&kind=customGraphs`
+                );
+            }, this.props.refresh_period).subscribe((graphs) => {
+                this.setState({
+                    custom_charts: Object.keys(graphs).map((k) => [k, graphs[k]] as [string, ChartConfiguration])
+                });
             }, (e) => {
                 this.setState({error: e.message});
                 // Handle error here
@@ -173,7 +191,7 @@ export default class ProjectGraphs extends React.Component<Props, State> {
     }
 
     public render() {
-        const {serial, error, project_data} = this.state;
+        const {serial, error, project_data, custom_charts} = this.state;
         if(project_data === undefined) {
             return <Loading />;
         }
@@ -190,6 +208,9 @@ export default class ProjectGraphs extends React.Component<Props, State> {
             {error === null ? <React.Fragment>
                 <Chart options={this.chart1} serial={serial} />
                 <Chart options={this.chart2} serial={serial} />
+                {custom_charts.map(([name, config]) => {
+                    return <Chart key={name} options={config} />;
+                })}
             </React.Fragment> : <React.Fragment>
                 <span className="ProjectGraphs-error">error</span>
                 <a onClick={() => this.reset()}>Retry</a>

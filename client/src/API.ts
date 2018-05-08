@@ -12,13 +12,8 @@ export interface Settings {
     projects: string[];
 }
 
-export interface GraphPoint {
-    x: number;
-    y: number;
-}
-
 export interface Graphs {
-    [name: string]: GraphPoint[];
+    [name: string]: any;
 }
 
 export interface User {

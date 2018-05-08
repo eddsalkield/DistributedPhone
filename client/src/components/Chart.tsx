@@ -6,10 +6,11 @@ import * as chartjs from "chart.js";
 
 export type ChartData = chartjs.ChartData;
 export type ChartConfiguration = chartjs.ChartConfiguration;
+export type ChartPoint = chartjs.ChartPoint;
 
 interface Props {
     options: ChartConfiguration;
-    serial: any;
+    serial?: any;
 }
 
 export class Chart extends React.Component<Props> {
@@ -17,7 +18,6 @@ export class Chart extends React.Component<Props> {
     private chart: chartjs | null;
     private chart_opts: ChartConfiguration | null;
     private chart_serial: any = undefined;
-    private chart_reset: boolean = false;
     private chart_update: boolean = false;
 
     constructor(props: Props) {
@@ -40,7 +40,7 @@ export class Chart extends React.Component<Props> {
         const {options, serial} = this.props;
         if(options !== this.chart_opts) {
             this.chart_opts = options;
-            this.chart_reset = true;
+            this.chart_update = true;
         }
         if(serial !== this.chart_serial) {
             this.chart_serial = serial;
@@ -65,8 +65,7 @@ export class Chart extends React.Component<Props> {
 
     private _update(): void {
         this.update_scheduled = false;
-        if(this.chart !== null && (this.canvas === null || this.chart.canvas !== this.canvas || this.chart_reset)) {
-            this.chart_reset = false;
+        if(this.chart !== null && (this.canvas === null || this.chart.canvas !== this.canvas)) {
             this.chart.destroy();
             this.chart = null;
         }
