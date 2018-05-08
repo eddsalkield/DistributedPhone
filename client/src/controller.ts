@@ -462,6 +462,13 @@ interface RunnerData {
     stop(): Promise<void>;
 }
 
+const enum RunnerState {
+    STOPPED = 0,
+    STOPPING = 1,
+    STARTING = 2,
+    RUNNING = 3,
+}
+
 export class User implements ui_api.User {
     public readonly projects = new obs.Cache<Map<string, Project>>();
     public readonly settings: obs.Subject<Settings>;
@@ -470,6 +477,7 @@ export class User implements ui_api.User {
 
     private runner_promise: Promise<RunnerData> | null = null;
     private runner_stop_promise: Promise<void> = Promise.resolve();
+    private runner_state: RunnerState = RunnerState.STOPPED;
 
     constructor(
         private readonly ctl: Controller,
@@ -537,7 +545,7 @@ export class User implements ui_api.User {
     private startExec(): Promise<Runner> {
         let pr = this.runner_promise;
         if(pr === null) {
-            this.runner_promise = pr = this.runner_stop_promise.catch().then(
+            this.runner_promise = pr = this.runner_stop_promise.catch(() => {}).then(
                 () => IDBStorage.create(this.ctl.stat_root, "blob_storage")
             ).then((storage) => {
                 const wp = new WorkProvider(this.ctl, this.settings, this.token);
@@ -580,6 +588,9 @@ export class User implements ui_api.User {
 
                     for(const sub of subs) sub.start();
 
+                    this.runner_state = RunnerState.RUNNING;
+                    this.makeOverview();
+
                     return {
                         runner: r,
                         stop() {
@@ -592,6 +603,9 @@ export class User implements ui_api.User {
                     };
                 });
             });
+
+            this.runner_state = RunnerState.STARTING;
+            this.makeOverview();
         }
         return pr.then((rd) => rd.runner);
     }
@@ -602,7 +616,12 @@ export class User implements ui_api.User {
         this.runner_promise = null;
 
         return this.runner_stop_promise = rpr.then((r) => {
+            this.runner_state = RunnerState.STOPPING;
+            this.makeOverview();
+
             return r.stop();
+        }).finally(() => {
+            this.runner_state = RunnerState.STOPPED;
         });
     }
 
@@ -717,10 +736,19 @@ export class User implements ui_api.User {
 
     private makeOverview(): void {
         const ov: string[] = [];
-        if(this.runner_promise !== null) {
-            ov.push("Ready to work");
-        } else {
-            ov.push("Stopped");
+        switch(this.runner_state) {
+            case RunnerState.STARTING:
+                ov.push("State: Starting up");
+                break;
+            case RunnerState.RUNNING:
+                ov.push("State: Ready");
+                break;
+            case RunnerState.STOPPING:
+                ov.push("State: Stopping");
+                break;
+            case RunnerState.STOPPED:
+                ov.push("State: Stopped");
+                break;
         }
         if(!this.have_battery) {
             ov.push("Battery status not available");
