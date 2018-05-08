@@ -75,13 +75,15 @@ export default class Navbar extends React.Component<Props, State> {
                 </Button>
                 <span>Hello, {this.props.user.username}</span>
             </div>
-            <div className="Navbar-overlay" onClick={this.onNav}><div className="Navbar-menu-box"><div className="Navbar-menu" onClick={this.onMenuClick} >
-                <Link to="/" onClick={this.onNav}>Overview</Link>
-                <Link to="/projects" onClick={this.onNav}>Projects</Link>
-                <Link to="/settings" onClick={this.onNav}>Settings</Link>
-                <a onClick={this.onStop} className={this.state.logging_out ? "inprogress" : ""}>Stop</a>
-                <a onClick={this.onLogout} className={this.state.logging_out ? "inprogress" : ""}>Log out</a>
-            </div></div></div>
+            <div className="Navbar-overlay" onClick={this.onNav}>
+                <div className="Navbar-menu-box"><div className="Navbar-menu" onClick={this.onMenuClick} >
+                    <Link to="/" onClick={this.onNav}>Overview</Link>
+                    <Link to="/projects" onClick={this.onNav}>Projects</Link>
+                    <Link to="/settings" onClick={this.onNav}>Settings</Link>
+                    <a onClick={this.onStop} className={this.state.logging_out ? "inprogress" : ""}>Stop</a>
+                    <a onClick={this.onLogout} className={this.state.logging_out ? "inprogress" : ""}>Log out</a>
+                </div></div>
+            </div>
         </div>;
     }
 }

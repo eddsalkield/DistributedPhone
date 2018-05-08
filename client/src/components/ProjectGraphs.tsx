@@ -4,8 +4,8 @@ import * as obs from "@/obs";
 
 import * as api from "../API";
 
+import {Chart, ChartDataset, ChartOptions, ChartPoint} from "./Chart";
 import Loading from "./Loading";
-import {Chart, ChartOptions, ChartDataset, ChartPoint} from "./Chart";
 
 import "./ProjectGraphs.css";
 
@@ -44,7 +44,6 @@ function flatLine(data: ChartPoint[], now: number) {
         });
 	}
 }
-
 
 function makeStandardGraphs(data: Graphs): StandardCharts {
     const now = new Date().getTime();

@@ -54,7 +54,13 @@ class App extends React.Component<Props, State> {
             <Navbar user={user} />
             <Route exact path="/" render={(props) => <Home user={user} {...props} />} />
             <Route exact path="/projects" render={(props) => <Projects user={user} {...props} />} />
-            <Route exact path="/project/:project" render={(props) => <ProjectGraphs user={user} project={props.match.params.project} refresh_period={1000} {...props} />} />
+            <Route exact path="/project/:project" render={(props) => {
+                return <ProjectGraphs
+                    user={user}
+                    project={props.match.params.project}
+                    refresh_period={1000}
+                {...props} />;
+            }} />
             <Route exact path="/settings"  render={(props) => <Settings user={user} {...props} />}/>
         </div></Router>;
     }
