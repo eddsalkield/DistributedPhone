@@ -373,7 +373,17 @@ class WorkProvider implements exec_api.WorkProvider {
 
             if(tasks.length === 0) {
                 return new Promise((resolve, reject) => {
-                    setTimeout(() => resolve({tasks: tasks}), 5000);
+                    const tm = self.setTimeout(() => {
+                        resolve({tasks: tasks});
+                        sub.stop();
+                    }, 5000);
+                    const fin = () => {
+                        self.clearTimeout(tm);
+                        resolve({tasks: []});
+                        sub.stop();
+                    };
+                    const sub = this.cfg.subscribe(undefined, fin, fin);
+                    sub.start();
                 });
             }
 
@@ -667,6 +677,12 @@ export class User implements ui_api.User {
                 projects: proj,
             });
         });
+    }
+
+    public refreshProjects(): Promise<void> {
+        this.projects.reset();
+        // TODO: get actual promise
+        return Promise.resolve();
     }
 
     public onStat(name: string, key: stat.Key, value: number) {

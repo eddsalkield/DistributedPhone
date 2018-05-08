@@ -60,6 +60,10 @@ export default class Projects extends React.Component<Props, State> {
         }
     }
 
+    private onRefresh = () => {
+        this.props.user.refreshProjects();
+    };
+
     public render() {
         const {projects, enabled} = this.state;
         if(projects === undefined || enabled === undefined) {
@@ -67,7 +71,10 @@ export default class Projects extends React.Component<Props, State> {
         }
 
         return <div className="Main Projects">
-            <h2>Projects</h2>
+            <h2>
+                Projects
+                <a className="Projects-refresh" onClick={this.onRefresh}>{refresh_icon}</a>
+            </h2>
             {projects.map((p) => <Project key={p.id} data={p} enabled={enabled.has(p.id)} onSet={this.onSet} />)}
         </div>;
     }
@@ -80,6 +87,8 @@ interface ProjProps {
 }
 
 const loremipsum = process.env.NODE_ENV === 'development' ? 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.' : '';
+
+const refresh_icon = <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18"><path d="M9 13.5c-2.49 0-4.5-2.01-4.5-4.5S6.51 4.5 9 4.5c1.24 0 2.36.52 3.17 1.33L10 8h5V3l-1.76 1.76C12.15 3.68 10.66 3 9 3 5.69 3 3.01 5.69 3.01 9S5.69 15 9 15c2.97 0 5.43-2.16 5.9-5h-1.52c-.46 2-2.24 3.5-4.38 3.5z"/></svg>;
 
 class Project extends React.Component<ProjProps> {
     private onChange = (name: string | undefined, value: boolean) => {

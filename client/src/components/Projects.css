@@ -4,6 +4,10 @@
 	padding: 0.5em;
 }
 
+.Projects-refresh {
+	float: right;
+}
+
 .Projects-Project > .InCheckbox > input {
 	height: 3.5em;
 }

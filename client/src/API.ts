@@ -33,6 +33,7 @@ export interface User {
     updateSettings(upd: Partial<Settings>): void;
     setProjectOn(name: string): void;
     setProjectOff(name: string): void;
+    refreshProjects(): Promise<void>;
     requestGraphs(query: string): Promise<Graphs>;
 }
 
@@ -125,6 +126,9 @@ export class MockUser implements User {
     public updateSettings(upd: Partial<Settings>): void {}
     public setProjectOn(name: string): void {}
     public setProjectOff(name: string): void {}
+    public refreshProjects(): Promise<void> {
+        return Promise.resolve();
+    }
     public requestGraphs(query: string): Promise<Graphs> {
         return Promise.resolve({});
     }
