@@ -100,7 +100,7 @@ def deleteSession(data, kind):
                 result = True
                 del sessions[token]
                 # Update graphs that this user is no longer active
-                for pname in users[kind]["issuedTasks"]:
+                for pname in users[data]["issuedTasks"]:
                     changeGraph(pname, "activeWorkers", -1)
                 break
 
