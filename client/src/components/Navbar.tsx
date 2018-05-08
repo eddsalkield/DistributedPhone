@@ -5,6 +5,8 @@ import * as obs from "@/obs";
 
 import * as api from "../API";
 
+import Button from "./Button";
+
 import "./Navbar.css";
 
 interface Props {
@@ -37,8 +39,8 @@ export default class Navbar extends React.Component<Props, State> {
         for(const s of this.subs) s.stop();
     }
 
-    private onToggle = (e: React.FormEvent<HTMLInputElement>) => {
-        this.setState({visible: (e.target as HTMLInputElement).checked});
+    private onToggle = () => {
+        this.setState((st) => ({visible: !st.visible}));
     }
 
     private onNav = () => {
@@ -60,21 +62,22 @@ export default class Navbar extends React.Component<Props, State> {
     }
 
     public render() {
-        return <div className="Navbar">
+        return <div className={"Navbar" + (this.state.visible ? " Navbar-visible" : "")}>
             <div className="Navbar-header">
-                <input
-                    type="checkbox" className="Navbar-button"
-                    checked={this.state.visible} onChange={this.onToggle}
-                />
+                <Button type="button" className="Navbar-button" onClick={this.onToggle}>
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                </Button>
                 <span>Hello, {this.props.user.username}</span>
             </div>
-            <div className={"Navbar-menu" + (this.state.visible ? " visible" : "")}>
+            <div className="Navbar-overlay" onClick={this.onNav}><div className="Navbar-menu-box"><div className="Navbar-menu">
                 <Link to="/" onClick={this.onNav}>Overview</Link>
                 <Link to="/projects" onClick={this.onNav}>Projects</Link>
                 <Link to="/settings" onClick={this.onNav}>Settings</Link>
                 <a onClick={this.onStop} className={this.state.logging_out ? "inprogress" : ""}>Stop</a>
                 <a onClick={this.onLogout} className={this.state.logging_out ? "inprogress" : ""}>Log out</a>
-            </div>
+            </div></div></div>
         </div>;
     }
 }

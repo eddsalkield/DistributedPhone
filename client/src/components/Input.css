@@ -5,6 +5,7 @@
 }
 
 .Button, .InText > input, .InCheckbox > input {
+	outline: none;
 	background-color: transparent;
 	appearance: none;
 	-moz-appearance: none;
@@ -85,6 +86,10 @@
 .InCheckbox > input:checked::after {
 	background-color: #67f;
 	left: calc(50%);
+}
+
+.Button {
+	justify-content: center;
 }
 
 .Button[type="submit"] {
