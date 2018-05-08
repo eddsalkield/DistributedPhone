@@ -622,6 +622,7 @@ export class User implements ui_api.User {
             return r.stop();
         }).finally(() => {
             this.runner_state = RunnerState.STOPPED;
+            this.makeOverview();
         });
     }
 
