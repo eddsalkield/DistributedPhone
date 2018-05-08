@@ -50,10 +50,10 @@ export class Chart extends React.Component<Props> {
     }
 
     public render() {
-        return <canvas ref={(ref) => {
+        return <div className="Chart"><canvas ref={(ref) => {
             this.canvas = ref;
             this.scheduleUpdate();
-        }} className="Chart" />;
+        }} /></div>;
     }
 
     private update_scheduled: boolean = false;
