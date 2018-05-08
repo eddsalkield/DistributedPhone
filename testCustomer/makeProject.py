@@ -33,6 +33,33 @@ if (not success):
 token = dataLogin["token"]
 (success, data) = createNewProject(token, "Project", "test1")
 
+graphs = { 
+
+   "highestResults": { 
+        "type": 'scatter',
+        "data": {
+            "datasets": [{
+                "label": 'Longest sequence length',
+                "borderColor": 'rgb (0, 255, 0)',
+                "data": {},
+                "showLine": True,
+                "lineTension": 0.1
+            }]
+        },
+        "options": {
+            "scales": {
+                "xAxes": [{
+                    "time": {
+                        "unit": 'second'    
+                    }
+                }]
+            }
+            }
+       }
+    }
+
+updateGraphs(token, graphs, projectName)
+
 (success, dataLogout) = logout(token)
 if (success):
     print ("Rebooted, Registered Customer, Created new project")
