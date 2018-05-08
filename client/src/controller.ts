@@ -719,15 +719,18 @@ export class User implements ui_api.User {
         ov.push(`Tasks ready to run: ${this.ov_tasks_ready}`);
         ov.push(`Tasks in send queue: ${this.ov_tasks_finished}`);
         ov.push(`Tasks sent: ${this.ov_tasks_sent}`);
-        ov.push(`navigator.connection: ${(window.navigator as any).connection}`);
-        ov.push(`navigator.mozConnection: ${(window.navigator as any).mozConnection}`);
-        ov.push(`navigator.webkitConnection: ${(window.navigator as any).webkitConnection}`);
-        ov.push(`navigator.battery: ${(window.navigator as any).battery}`);
-        ov.push(`navigator.mozBattery: ${(window.navigator as any).mozBattery}`);
-        ov.push(`navigator.webkitBattery: ${(window.navigator as any).webkitBattery}`);
-        ov.push(`navigator.getBattery: ${(window.navigator as any).getBattery}`);
-        ov.push(`navigator.mozGetBattery: ${(window.navigator as any).mozGetBattery}`);
-        ov.push(`navigator.webkitGetBattery: ${(window.navigator as any).webkitGetBattery}`);
+
+        if(process.env.NODE_ENV === "development") {
+            ov.push(`navigator.connection: ${(window.navigator as any).connection}`);
+            ov.push(`navigator.mozConnection: ${(window.navigator as any).mozConnection}`);
+            ov.push(`navigator.webkitConnection: ${(window.navigator as any).webkitConnection}`);
+            ov.push(`navigator.battery: ${(window.navigator as any).battery}`);
+            ov.push(`navigator.mozBattery: ${(window.navigator as any).mozBattery}`);
+            ov.push(`navigator.webkitBattery: ${(window.navigator as any).webkitBattery}`);
+            ov.push(`navigator.getBattery: ${(window.navigator as any).getBattery}`);
+            ov.push(`navigator.mozGetBattery: ${(window.navigator as any).mozGetBattery}`);
+            ov.push(`navigator.webkitGetBattery: ${(window.navigator as any).webkitGetBattery}`);
+        }
         this.overview.next(ov);
     }
 }

@@ -4,6 +4,21 @@
 	padding: 0.5em;
 }
 
+.Projects-Project > .InCheckbox > input {
+	height: 3.5em;
+}
+
 .Projects-Project > .InCheckbox > div > h4 {
-	padding: 0.5em;
+	padding: 0.5em 1em;
+	margin-bottom: 0em;
+}
+
+.Projects-Project > .InCheckbox {
+	margin-bottom: 0.25em;
+}
+
+.Projects-Project > a {
+	float: right;
+	margin-left: 1em;
+	margin-bottom: 1em;
 }

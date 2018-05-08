@@ -43,7 +43,8 @@
 	max-width: 250px;
 
 	display: flex;
-	background: #fff;
+	background-color: #fff;
+	z-index: 1;
 	border-right: 1px solid #ccc;
 	flex-direction: column;
 	align-items: left;

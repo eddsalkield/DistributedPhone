@@ -79,6 +79,8 @@ interface ProjProps {
     onSet: (id: string, value: boolean) => void;
 }
 
+const loremipsum = process.env.NODE_ENV === 'development' ? 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.' : '';
+
 class Project extends React.Component<ProjProps> {
     private onChange = (name: string | undefined, value: boolean) => {
         this.props.onSet(this.props.data.id, value);
@@ -91,7 +93,7 @@ class Project extends React.Component<ProjProps> {
                 <h4>{p.title}</h4>
             </InCheckbox>
             <Link to={`/project/${p.id}`}>Project stats</Link>
-            <p>{p.description}</p>
+            <p>{p.description} {loremipsum}</p>
         </div>;
     }
 }

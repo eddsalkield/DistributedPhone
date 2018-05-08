@@ -57,6 +57,10 @@ strong {
 	font-weight: bold;
 }
 
+p, h1, h2, h3, h4, h5, h6 {
+	line-height: 1.5;
+}
+
 h1, h2, h3, h4, h5, h6 {
 	font-weight: bold;
 }
@@ -79,6 +83,9 @@ h2 {
 h1 {
 	font-size: 2em;
 	margin-bottom: 1em;
+}
+p {
+	margin: 0.25em 0em;
 }
 
 .section-split {
