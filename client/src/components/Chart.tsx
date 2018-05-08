@@ -4,27 +4,27 @@ import "./Chart.css";
 
 import * as chartjs from "chart.js";
 
-export type ChartData = chartjs.ChartData;
-export type ChartConfiguration = chartjs.ChartConfiguration;
+export type ChartDataset = chartjs.ChartDataSets;
+export type ChartOptions = chartjs.ChartOptions;
 export type ChartPoint = chartjs.ChartPoint;
 
 interface Props {
-    options: ChartConfiguration;
-    serial?: any;
+    type: string;
+    options: ChartOptions;
+    datasets: ChartDataset[];
 }
 
 export class Chart extends React.Component<Props> {
     private canvas: HTMLCanvasElement | null;
     private chart: chartjs | null;
-    private chart_opts: ChartConfiguration | null;
-    private chart_serial: any = undefined;
-    private chart_update: boolean = false;
+
+    private upd: boolean = false;
+    private upd_reset: boolean = false;
 
     constructor(props: Props) {
         super(props);
         this.canvas = null;
         this.chart = null;
-        this.chart_opts = null;
     }
 
     public componentDidMount() {
@@ -32,28 +32,42 @@ export class Chart extends React.Component<Props> {
     }
 
     public componentWillUnmount() {
-        delete this.canvas;
-        this.scheduleUpdate();
+        this.destroy();
     }
 
-    public componentDidUpdate() {
-        const {options, serial} = this.props;
-        if(options !== this.chart_opts) {
-            this.chart_opts = options;
-            this.chart_update = true;
+    private destroy() {
+        if(this.chart !== null) {
+            this.chart.destroy();
+            this.chart = null;
         }
-        if(serial !== this.chart_serial) {
-            this.chart_serial = serial;
-            this.chart_update = true;
+        if(this.canvas !== null) {
+            this.canvas.remove();
+            this.canvas = null;
+        }
+    }
+
+    public componentDidUpdate(prev_props: Props) {
+        const {type, options, datasets} = this.props;
+        if(type !== prev_props.type) {
+            this.upd_reset = true;
+        }
+        if(options !== prev_props.options || datasets !== prev_props.datasets) {
+            this.upd = true;
         }
         this.scheduleUpdate();
     }
 
     public render() {
-        return <div className="Chart"><canvas ref={(ref) => {
-            this.canvas = ref;
+        return <div className="Chart" ref={(ref) => {
+            if(ref === null) {
+                return;
+            }
+            if(this.canvas === null) {
+                this.canvas = window.document.createElement("canvas");
+            }
+            ref.appendChild(this.canvas);
             this.scheduleUpdate();
-        }} /></div>;
+        }} />;
     }
 
     private update_scheduled: boolean = false;
@@ -64,19 +78,31 @@ export class Chart extends React.Component<Props> {
     }
 
     private _update(): void {
+        let chart = this.chart;
+        const cfg = this.props;
+
         this.update_scheduled = false;
-        if(this.chart !== null && (this.canvas === null || this.chart.canvas !== this.canvas)) {
-            this.chart.destroy();
+        if(chart !== null && (this.upd_reset || this.canvas === null || chart.canvas !== this.canvas)) {
             this.chart = null;
+            chart.destroy();
+            chart = null;
         }
-        if(this.canvas !== null && this.chart_opts !== null) {
-            if(this.chart === null) {
-                this.chart = new chartjs.Chart(this.canvas, this.chart_opts);
-                this.chart_update = true;
-            }
-            if(this.chart_update) {
-                this.chart_update = false;
-                this.chart.update();
+        this.upd_reset = false;
+        if(this.canvas !== null) {
+            if(chart === null) {
+                this.upd = false;
+                this.chart = chart = new chartjs.Chart(this.canvas, {
+                    type: cfg.type,
+                    options: cfg.options,
+                    data: {
+                        datasets: cfg.datasets,
+                    },
+                });
+            } else if(this.upd) {
+                this.upd = false;
+                (chart as any).options = cfg.options;
+                chart.data.datasets = cfg.datasets;
+                chart.update();
             }
         }
     }
