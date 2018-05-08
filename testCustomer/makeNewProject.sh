@@ -8,5 +8,5 @@ if [ -z "$3" ]; then
 	echo "password - the password of this user."
 	echo "projectname - the name of the project they are creating."
 else
-python3 makeProject.py $1 $2 $3 && python3 collatzCustomer.py $1 $2 $3
+python3 makeProject.py $1 $2 "$3" && python3 collatzCustomer.py $1 $2 "$3"
 fi

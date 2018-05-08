@@ -107,6 +107,11 @@ class TaskDistributor:
         updateGraphs(self.token, graphs, project_name)
 
     def processResults(self, bytedata):
+        v = int.from_bytes(bytedata, 'little')
+        print("size: " + str(len(bytedata)) + '; data: ' + str(v))
+        self.highestSeqs.append({ "y": v })
+        self.plot(self.highestSeqs)
+        return
 
         # Process results from a single task
         

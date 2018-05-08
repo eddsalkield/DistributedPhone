@@ -2,7 +2,7 @@ from serverRequest import *
 import sys
 import time
 
-reboot()
+#reboot()
 time.sleep(1)
 
 try:
@@ -23,7 +23,6 @@ except Exception:
 if (not success):
     print ("sad")
     print (dataRegister["error"])
-    sys.exit()
 
 (success, dataLogin) = login(username, password, "customer")
 if (not success):
@@ -31,7 +30,7 @@ if (not success):
     sys.exit()
 
 token = dataLogin["token"]
-(success, data) = createNewProject(token, "Project", "test1")
+(success, data) = createNewProject(token, projectName, "test1")
 
 graphs = { 
 

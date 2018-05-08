@@ -31,8 +31,7 @@ void u128_write(const void *vout, __uint128_t val) {
 
 void seqlen_write(const void *vout, seqlen_t val) {
     unsigned char *out = (unsigned char*)vout;
-    int s = sizeof(seqlen_t);
-    for (int i = 0; i < s; i++) {
+    for (int i = 0; i < 4; i++) {
         out[i] = (val >> 8*i);
     }
 }
@@ -55,21 +54,13 @@ struct pptw1_response *pptw1_run(struct pptw1_request* req) {
 
     // Extract blob data from request 
     struct pptw1_blobref reqControlBlob = req->control;
-    assert(reqControlBlob.size == 2 * sizeof(__uint128_t));
+    assert(reqControlBlob.size == 2 * 16);
     __uint128_t *data = (__uint128_t *)(reqControlBlob.data);
     __uint128_t left = data[0];
     __uint128_t right = data[1];
 
-    // Our blob memory
-    char* blobMemStart = pptw1_malloc(sizeof(seqlen_t[right - left]));
-    char* blobMemIndex = blobMemStart;
-
-    // Write interval
-    u128_write(blobMemIndex, left); blobMemIndex += sizeof(__uint128_t);
-    u128_write(blobMemIndex, right); blobMemIndex += sizeof(__uint128_t);
-
     __uint128_t num;  // current number we are testing
-    seqlen_t seqLength; // length of that sequence
+    seqlen_t maxLen = 0, seqLength; // length of that sequence
 
     // search [left..right)
 
@@ -82,15 +73,15 @@ struct pptw1_response *pptw1_run(struct pptw1_request* req) {
         }
         // may have overflowed
         if (num == 1) {
-            seqlen_write(blobMemIndex, seqLength);
-            blobMemIndex += sizeof(seqlen_t);
+			if(seqLength > maxLen) maxLen = seqLength;
         }
     }
 
     // Info has been written to memory[blobMem ... blobMem + seqDone)
     struct pptw1_blobref * thisBlob = &(response->blobs[0]); // we send a single blob
-    thisBlob->data = blobMemStart;
-    thisBlob->size = blobMemIndex - blobMemStart;
+    thisBlob->data = malloc(4);
+    thisBlob->size = 4;
+	seqlen_write(thisBlob->data, maxLen);
 
     return response;
 }

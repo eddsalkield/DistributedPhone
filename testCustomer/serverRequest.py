@@ -1,10 +1,10 @@
 ## Automated tests for the server
 import requests, cbor
 
-SERVER_IP = "35.178.90.246/api"
+SERVER_URL = "https://pptw1.venev.name/api"
 
 def reboot():
-    r = requests.post("http://" + SERVER_IP + "/reboot")
+    r = requests.post(SERVER_URL + "/reboot")
 
     if r.status_code != 200:
         return (False, r.text)
@@ -16,7 +16,7 @@ def reboot():
 
 # Test ping
 def testPing():
-    r = requests.post("http://" + SERVER_IP + "/ping")
+    r = requests.post(SERVER_URL + "/ping")
 
     if r.status_code != 200:
         return (False, r.text)
@@ -26,7 +26,7 @@ def testPing():
 
 
 def registerCustomer(username, password):
-    r = requests.post("http://" + SERVER_IP + "/register", data = cbor.dumps(
+    r = requests.post(SERVER_URL + "/register", data = cbor.dumps(
         {   "username": username,
             "password": password,
             "accesslevel": "customer"
@@ -39,7 +39,7 @@ def registerCustomer(username, password):
     return (data["success"] and data["error"] == "", data)
 
 def registerWorker(username, password):
-    r = requests.post("http://" + SERVER_IP + "/register", data = cbor.dumps(
+    r = requests.post(SERVER_URL + "/register", data = cbor.dumps(
         {   "username": username,
             "password": password,
             "accesslevel": "worker"
@@ -52,7 +52,7 @@ def registerWorker(username, password):
     return (data["success"] and data["error"] == "", data)
 
 def login(username, password, accesslevel):
-    r = requests.post("http://" + SERVER_IP + "/login", data = cbor.dumps(
+    r = requests.post(SERVER_URL + "/login", data = cbor.dumps(
         {   "username": username,
             "password": password,
             "accesslevel": accesslevel
@@ -65,7 +65,7 @@ def login(username, password, accesslevel):
     return (data["success"] and data["error"] == "", data)
 
 def logout(token):
-    r = requests.post("http://" + SERVER_IP + "/logout", data = cbor.dumps(
+    r = requests.post(SERVER_URL + "/logout", data = cbor.dumps(
         {   "token": token   }))
 
     if r.status_code != 200:
@@ -75,7 +75,7 @@ def logout(token):
     return (data["success"] and data["error"] == "", data)
     
 def createNewProject(token, pname, pdescription):
-    r = requests.post("http://" + SERVER_IP + "/createNewProject", data = cbor.dumps(
+    r = requests.post(SERVER_URL + "/createNewProject", data = cbor.dumps(
         {   "token": token,
             "pname": pname,
             "pdescription": pdescription
@@ -88,7 +88,7 @@ def createNewProject(token, pname, pdescription):
     return (data["success"] and data["error"] == "", data)
     
 def createNewBlob(token, pname, blob, metadata):
-    r = requests.post("http://" + SERVER_IP + "/createNewBlob", data = cbor.dumps(
+    r = requests.post(SERVER_URL + "/createNewBlob", data = cbor.dumps(
         {   "token": token,
             "pname": pname,
             "blob": blob,
@@ -102,7 +102,7 @@ def createNewBlob(token, pname, blob, metadata):
     return (data["success"] and data["error"] == "", data)
 
 def blobToTask(token, pname, blobID):
-    r = requests.post("http://" + SERVER_IP + "/blobToTask", data = cbor.dumps(
+    r = requests.post(SERVER_URL + "/blobToTask", data = cbor.dumps(
         {   "token": token,
             "pname": pname,
             "blobID": blobID,
@@ -115,7 +115,7 @@ def blobToTask(token, pname, blobID):
     return (data["success"] and data["error"] == "", data)
     
 def getBlobMetadata(token, pname, blobIDs):
-    r = requests.post("http://" + SERVER_IP + "/getBlobMetadata", data = cbor.dumps(
+    r = requests.post(SERVER_URL + "/getBlobMetadata", data = cbor.dumps(
         {   "token": token,
             "pname": pname,
             "blobIDs": blobIDs,
@@ -129,7 +129,7 @@ def getBlobMetadata(token, pname, blobIDs):
     return (data["success"] and data["error"] == "", data)
     
 def getBlob(token, pname, name):
-    r = requests.post("http://" + SERVER_IP + "/getBlob", data = cbor.dumps(
+    r = requests.post(SERVER_URL + "/getBlob", data = cbor.dumps(
         {   "token": token,
             "pname": pname,
             "name": name,
@@ -144,7 +144,7 @@ def getBlob(token, pname, name):
     return (data["success"] and data["error"] == "", data)
     
 def getTasks(token, pname, maxtasks):
-    r = requests.post("http://" + SERVER_IP + "/getTasks", data = cbor.dumps(
+    r = requests.post(SERVER_URL + "/getTasks", data = cbor.dumps(
         {   "token": token,
             "pname": pname,
             "maxtasks": maxtasks,
@@ -157,7 +157,7 @@ def getTasks(token, pname, maxtasks):
     return (data["success"] and data["error"] == "", data)
 
 def sendTasks(token, tasks):
-    r = requests.post("http://" + SERVER_IP + "/sendTasks", data = cbor.dumps(
+    r = requests.post(SERVER_URL + "/sendTasks", data = cbor.dumps(
         {   "token": token,
             "tasks": tasks
         }))
@@ -169,7 +169,7 @@ def sendTasks(token, tasks):
     return (data["success"] and data["error"] == "", data)
 
 def deleteBlob(token, pname, blobID):
-    r = requests.post("http://" + SERVER_IP + "/deleteBlob", data = cbor.dumps(
+    r = requests.post(SERVER_URL + "/deleteBlob", data = cbor.dumps(
         {   "token": token,
             "pname": pname,
             "blobID": blobID
@@ -182,7 +182,7 @@ def deleteBlob(token, pname, blobID):
     return (data["success"] and data["error"] == "", data)
 
 def getGraphs(pname):
-    r = requests.post("http://" + SERVER_IP + "/getGraphs", data = cbor.dumps(
+    r = requests.post(SERVER_URL + "/getGraphs", data = cbor.dumps(
         {   "pname": pname
         }))
 
@@ -194,7 +194,7 @@ def getGraphs(pname):
 
 
 def getProjectsList():
-    r = requests.post("http://" + SERVER_IP + "/getProjectsList")
+    r = requests.post(SERVER_URL + "/getProjectsList")
 
     if r.status_code != 200:
         return (False, r.text)
@@ -203,7 +203,7 @@ def getProjectsList():
     return (data["success"] and data["error"] == "", data)
 
 def updateGraphs(token, graphsCBOR, pname):
-    r = requests.post("http://" + SERVER_IP + "/updateCustomGraphs", data = cbor.dumps(
+    r = requests.post(SERVER_URL + "/updateCustomGraphs", data = cbor.dumps(
     {   "token": token,
         "pname": pname,
         "customGraphs": graphsCBOR
