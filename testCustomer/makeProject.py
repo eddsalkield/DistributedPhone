@@ -2,8 +2,8 @@ from serverRequest import *
 import sys
 import time
 
-reboot()
-time.sleep(1)
+#reboot()
+#time.sleep(1)
 
 try:
     username = sys.argv[1]
@@ -22,7 +22,7 @@ except Exception:
 (success, dataRegister) = registerCustomer(username, password)
 if (not success):
     print ("sad")
-    print (dataRegister["error"])
+    print (dataRegister)
     sys.exit()
 
 (success, dataLogin) = login(username, password, "customer")
@@ -31,7 +31,7 @@ if (not success):
     sys.exit()
 
 token = dataLogin["token"]
-(success, data) = createNewProject(token, projectName, "Help us solve the Collatz conjecture")
+(success, data) = createNewProject(token, projectName, "Help us find the longest Collatz sequence")
 
 graphs = { 
    "highestResults": { 
@@ -40,7 +40,7 @@ graphs = {
             "datasets": [{
                 "label": 'Longest sequences computed from tasks',
                 "borderColor": 'rgb(0, 255, 0)',
-                "data": {"x": 0, <C-F11><C-F11><C-F11>},
+                "data": [],
                 "showLine": True,
                 "lineTension": 0.0 
             }]
