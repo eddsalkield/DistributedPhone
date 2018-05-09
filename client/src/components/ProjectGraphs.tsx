@@ -185,7 +185,7 @@ export default class ProjectGraphs extends React.Component<Props, State> {
             this.props.user.projects.subscribe((p) => {
                 const pd = p.get(this.props.project);
                 this.setState({
-                    project_data: pd === undefined ? null : pd
+                    project_data: pd === undefined ? null : pd,
                 });
             }),
             this.props.user.settings.subscribe((s) => {
