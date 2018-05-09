@@ -5,6 +5,7 @@ import * as obs from "@/obs";
 import * as api from "../API";
 
 import {Chart, ChartDataset, ChartOptions, ChartPoint, ChartTimeAxis} from "./Chart";
+import InCheckbox from "./InCheckbox";
 import Loading from "./Loading";
 
 import "./ProjectGraphs.css";
@@ -31,6 +32,7 @@ interface StandardCharts {
 }
 
 interface State extends Partial<StandardCharts> {
+    enabled_projects: string[];
     error: string | null;
     project_data?: api.Project | null;
     custom_charts: Array<[string, ChartConfig]>;
@@ -118,6 +120,7 @@ export default class ProjectGraphs extends React.Component<Props, State> {
     constructor(props: Props) {
         super(props);
         this.state = {
+            enabled_projects: [],
             error: null,
             project_data: undefined,
             custom_charts: [],
@@ -181,7 +184,12 @@ export default class ProjectGraphs extends React.Component<Props, State> {
             }),
             this.props.user.projects.subscribe((p) => {
                 const pd = p.get(this.props.project);
-                this.setState({project_data: pd === undefined ? null : pd});
+                this.setState({
+                    project_data: pd === undefined ? null : pd
+                });
+            }),
+            this.props.user.settings.subscribe((s) => {
+                this.setState({enabled_projects: s.projects});
             }),
         ];
         for(const sub of this.subs) sub.start();
@@ -221,8 +229,19 @@ export default class ProjectGraphs extends React.Component<Props, State> {
         };
     }
 
+    private onChange = (): void => {
+        const {enabled_projects, project_data} = this.state;
+        const {user} = this.props;
+        if(!project_data) return;
+        if(enabled_projects.indexOf(project_data.id) === -1) {
+            user.setProjectOn(project_data.id);
+        } else {
+            user.setProjectOff(project_data.id);
+        }
+    }
+
     public render() {
-        const {worker_chart, task_chart, error, project_data, custom_charts} = this.state;
+        const {worker_chart, task_chart, enabled_projects, error, project_data, custom_charts} = this.state;
         if(project_data === undefined) {
             return <Loading />;
         }
@@ -234,7 +253,9 @@ export default class ProjectGraphs extends React.Component<Props, State> {
         }
 
         return <div className="Main ProjectGraphs">
-            <h2>{project_data.title}</h2>
+            <InCheckbox value={enabled_projects.indexOf(project_data.id) !== -1} onChange={this.onChange}>
+                <h2>{project_data.title}</h2>
+            </InCheckbox>
             <p>{project_data.description}</p>
             {error === null ? <React.Fragment>
                 {worker_chart && <Chart key="standard-worker" {...worker_chart} />}
