@@ -1,9 +1,9 @@
 import * as React from "react";
 
-import "./Loading.css";
+import "./Logo.css";
 
 export default class FormError extends React.Component {
     public render() {
-        return <div className="Main Loading">Loading...</div>;
+        return <img src="logo.png" alt="DistributedPhone" className="Logo" />;
     }
 }

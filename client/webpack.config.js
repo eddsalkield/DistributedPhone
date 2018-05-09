@@ -1,5 +1,8 @@
 const path = require('path');
 const webpack = require('webpack');
+const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const OptimizeCSSAssetsPlugin = require('optimize-css-assets-webpack-plugin');
 
 distdir = path.resolve(__dirname, "dist");
 
@@ -12,8 +15,30 @@ module.exports = function(env, argv) {
       mode: env.dev ? "development" : "production",
       devtool: env.dev ? "inline-source-map" : false,
       optimization: {
-        minimize: !env.dev,
+        minimizer: env.dev ? [] : [
+        ],
       },
+
+      plugins: [
+        new MiniCssExtractPlugin({
+          filename: '[name].css'
+        }),
+      ].concat(env.dev ? [] : [
+        new UglifyJsPlugin({
+          cache: true,
+          parallel: true,
+          uglifyOptions: {
+            output: {
+              comments: false,
+            },
+            compress: {
+              ecma: 6,
+            },
+          },
+        }),
+        env.dev ? null : new OptimizeCSSAssetsPlugin({}),
+        env.dev ? null : new webpack.optimize.AggressiveMergingPlugin(),
+      ]),
 
       module: {
         rules: [
@@ -28,7 +53,7 @@ module.exports = function(env, argv) {
             },
           }, {
             test: /\.css$/,
-            use: ['style-loader', 'css-loader'],
+            use: [MiniCssExtractPlugin.loader, 'css-loader']
           },
         ],
       },

@@ -6,6 +6,7 @@ import Button from "./Button";
 import Form, {FormData} from "./Form";
 import FormError from "./FormError";
 import InText from "./InText";
+import Logo from "./Logo";
 
 import "./Login.css";
 
@@ -45,7 +46,7 @@ export default class Login extends React.Component<Props, State> {
 
         this.setState({signingUp: true, signUpError: null});
         this.props.controller.signUp(data["email"] as string, password).then(() => {
-            // nop?
+            location.href = "#/projects";
         }, (e) => {
             this.setState({
                 signingUp: false,
@@ -58,7 +59,6 @@ export default class Login extends React.Component<Props, State> {
         this.setState({loginError: null, loggingIn: true});
         this.props.controller.login(data["email"] as string, data["password"] as string).finally(() => {
         }).then(() => {
-            // nop?
         }, (e) => {
             this.setState({
                 loggingIn: false,
@@ -69,9 +69,9 @@ export default class Login extends React.Component<Props, State> {
 
     private onGuestLogin = () => {
         this.setState({loginError: null, loggingInAsGuest: true});
-        this.props.controller.loginGuest().finally(() => {
-            // nop?
-        }).catch((e) => {
+        this.props.controller.loginGuest().then(() => {
+            location.href = "#/projects";
+        }, (e) => {
             this.setState({
                 loggingInAsGuest: false,
                 signUpError: e.message,
@@ -85,7 +85,7 @@ export default class Login extends React.Component<Props, State> {
 
     public render() {
         return <div className="Login">
-            <h1>Put your Phone to Work</h1>
+            <h1><Logo /></h1>
             <div className="section-split"><span>Will <em>you</em> join your phone to our botnet?</span></div>
             { this.state.isSignUp ?
                 <Form className="Form-large" onSubmit={this.onSignUp}>
@@ -93,12 +93,16 @@ export default class Login extends React.Component<Props, State> {
                     <InText type="email" name="email" desc="Email" />
                     <InText type="password" name="password" desc="Password" />
                     <InText type="password" name="password2" desc="Confirm Password" />
-                    <InText desc="Your mother's maiden name" />
                     <FormError error={this.state.signUpError} />
                     <Button type="submit">Sign Up</Button>
                     <Button type="button" onClick={this.onGuestLogin}>Enter as guest</Button>
-                    <label className="Input">
-                        <div>Already have an account? <a onClick={this.setLogin}>Log in</a></div>
+                    <label className="Input Login-Links">
+                        <div>
+                            Already have an account? <a onClick={this.setLogin}>Log in</a>
+                        </div>
+                        <div>
+                            App misbehaving? <a onClick={() => this.props.controller.reset()}>Reset</a>
+                        </div>
                     </label>
                 </Form>
             :

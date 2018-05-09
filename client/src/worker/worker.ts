@@ -60,8 +60,6 @@ onmessage = (msg) => {
                 for(const cb of cbs) {
                     cb(blob_data);
                 }
-            } else {
-                console.log("Not-needed " + blob_id);
             }
         }
     }

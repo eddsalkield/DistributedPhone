@@ -12,6 +12,10 @@ export interface Settings {
     projects: string[];
 }
 
+export interface Graphs {
+    [name: string]: any;
+}
+
 export interface User {
     readonly username: string;
     readonly settings: Observable<Settings>;
@@ -24,6 +28,8 @@ export interface User {
     updateSettings(upd: Partial<Settings>): void;
     setProjectOn(name: string): void;
     setProjectOff(name: string): void;
+    refreshProjects(): Promise<void>;
+    requestGraphs(query: string): Promise<Graphs>;
 }
 
 export interface ClientState {
@@ -32,6 +38,7 @@ export interface ClientState {
     login(username: string, password: string): Promise<void>;
     loginGuest(): Promise<void>;
     signUp(username: string, password: string): Promise<void>;
+    reset(): Promise<void>;
 }
 
 export class MockClientState implements ClientState {
@@ -63,6 +70,10 @@ export class MockClientState implements ClientState {
 
     public signUp(username: string, password: string): Promise<void> {
         return this.login(username, "a");
+    }
+
+    public reset(): Promise<void> {
+        return Promise.resolve();
     }
 }
 
@@ -115,4 +126,10 @@ export class MockUser implements User {
     public updateSettings(upd: Partial<Settings>): void {}
     public setProjectOn(name: string): void {}
     public setProjectOff(name: string): void {}
+    public refreshProjects(): Promise<void> {
+        return Promise.resolve();
+    }
+    public requestGraphs(query: string): Promise<Graphs> {
+        return Promise.resolve({});
+    }
 }

@@ -55,7 +55,7 @@ export default class Settings extends React.Component<Props, State> {
             return <Loading />;
         }
 
-        return <div className="Settings">
+        return <div className="Main Settings">
             <h2>Settings</h2>
             <Form className="Form-large">
                 <InCheckbox name="allow_mobile_data" value={this.state.set.allow_mobile_data} onChange={this.onChange} >

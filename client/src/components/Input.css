@@ -5,6 +5,7 @@
 }
 
 .Button, .InText > input, .InCheckbox > input {
+	outline: 0;
 	background-color: transparent;
 	appearance: none;
 	-moz-appearance: none;
@@ -27,16 +28,25 @@
 	position: absolute;
 	height: 100%;
 	padding: 1em;
-	left: 100%;
-	top: 0px;
-	bottom: 0px;
+	right: 0em;
+	top: 0em;
+	bottom: 0em;
+	transform: translateX(100%);
 	transition: transform 0.2s ease-out;
 	display: flex;
 	align-items: center;
 }
 
 .InText.InText-focus > div {
-	transform: translateX(-100%);
+	transform: translateX(0%);
+}
+
+.InText > input:focus::placeholder {
+	opacity: 0;
+}
+
+.InText > input:focus::-webkit-input-placeholder {
+	opacity: 0;
 }
 
 .InCheckbox > div {
@@ -47,20 +57,48 @@
 	display: block;
 	float: right;
 	height: 100%;
+	width: 3em;
+	position: relative;
+}
+
+.InCheckbox > input::before {
+	content: '';
+	display: block;
+	width: 2em;
+	height: 1em;
+	border-radius: 0.5em;
+	background-color: #777;
+	position: absolute;
+	top: calc(50% - 0.5em);
+	left: calc(50% - 1em);
 }
 
 .InCheckbox > input::after {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	height: 100%;
-	content: 'OFF';
-	color: #f00;
+	content: '';
+	display: block;
+	width: 1.5em;
+	height: 1.5em;
+	max-width: 1.5em;
+	max-height: 1.5em;
+	border-radius: 0.75em;
+	background-color: #ccc;
+	position: absolute;
+	top: calc(50% - 0.75em);
+	left: calc(50% - 1.5em);
+	transition: left 0.1s linear;
+}
+
+.InCheckbox > input:checked::before {
+	background-color: #9af;
 }
 
 .InCheckbox > input:checked::after {
-	content: 'ON';
-	color: #0f0;
+	background-color: #67f;
+	left: calc(50%);
+}
+
+.Button {
+	justify-content: center;
 }
 
 .Button[type="submit"] {

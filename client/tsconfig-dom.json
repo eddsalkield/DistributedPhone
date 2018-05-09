@@ -6,7 +6,7 @@
     "jsx": "react"
   },
   "include": [
-    "./src/index.ts",
+    "./src/index.tsx",
     "./src/exec/tests/*.ts",
     "./src/exec/test-rig.ts",
     "./src/server-test-rig.ts"

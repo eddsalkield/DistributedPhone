@@ -1,0 +1,9 @@
+.Logo {
+	display: block;
+	max-width: 100%;
+	object-fit: scale-down;
+}
+
+h1 .Logo {
+	max-height: 6em;
+}

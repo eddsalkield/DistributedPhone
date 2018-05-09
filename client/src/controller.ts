@@ -50,8 +50,8 @@ function parseResponse(data: ArrayBuffer, handlers: {[name: string]: ((r: cbor.R
 }
 
 const DEFAULT_SETTINGS: Settings = {
-    allow_mobile_data: false,
-    allow_on_battery: false,
+    allow_mobile_data: true,
+    allow_on_battery: true,
     projects: [],
 };
 
@@ -157,8 +157,31 @@ export class Controller {
                 });
             }
             return res.arrayBuffer();
-        }).then((resp) => {
-            return resp;
+        });
+    }
+
+    public requestGraphs(query: string): Promise<ui_api.Graphs> {
+        const headers = new Headers();
+        const url = `${this.url}getGraphs?${query}`;
+        return fetch(url, {
+            method: "POST",
+            body: null,
+            headers: headers,
+            mode: "cors",
+            credentials: "omit",
+            cache: "no-store",
+            redirect: "follow",
+        }).then((res) => {
+            if(!res.ok) {
+                throw new err.Network("HTTP error", {
+                    url: url,
+                    http_code: res.status,
+                });
+            }
+            return res.json();
+        }).then((v) => {
+            if(!v.success) throw new err.Network(v.error);
+            return v.graphs;
         });
     }
 }
@@ -222,11 +245,15 @@ class WorkProvider implements exec_api.WorkProvider {
     private _paused: boolean = false;
     private _stopped: boolean = false;
 
+    private readonly cfg: obs.Cache<Settings>;
+
     constructor(
         private readonly ctl: Controller,
-        private readonly cfg: obs.Observable<Settings>,
+        cfg: obs.Observable<Settings>,
         private readonly token: string,
-    ) {}
+    ) {
+        this.cfg = new obs.Cache(cfg);
+    }
 
     public get paused() {
         return this._paused;
@@ -245,6 +272,7 @@ class WorkProvider implements exec_api.WorkProvider {
     }
 
     public stop(): void {
+        this.cfg.complete();
         this._stopped = true;
         this.paused = false;
     }
@@ -253,7 +281,7 @@ class WorkProvider implements exec_api.WorkProvider {
         return new Promise((resolve, reject) => {
             const f = () => {
                 if(this._stopped) {
-                    reject(new err.Cancelled("Stopping WorkProvider"));
+                    reject(new err.Network("Stopping WorkProvider"));
                     return;
                 }
                 try {
@@ -350,7 +378,17 @@ class WorkProvider implements exec_api.WorkProvider {
 
             if(tasks.length === 0) {
                 return new Promise((resolve, reject) => {
-                    setTimeout(() => resolve({tasks: tasks}), 5000);
+                    const tm = self.setTimeout(() => {
+                        resolve({tasks: tasks});
+                        sub.stop();
+                    }, 5000);
+                    const fin = () => {
+                        self.clearTimeout(tm);
+                        resolve({tasks: tasks});
+                        sub.stop();
+                    };
+                    const sub = this.cfg.subscribe(undefined, fin, fin);
+                    sub.start();
                 });
             }
 
@@ -424,6 +462,13 @@ interface RunnerData {
     stop(): Promise<void>;
 }
 
+const enum RunnerState {
+    STOPPED = 0,
+    STOPPING = 1,
+    STARTING = 2,
+    RUNNING = 3,
+}
+
 export class User implements ui_api.User {
     public readonly projects = new obs.Cache<Map<string, Project>>();
     public readonly settings: obs.Subject<Settings>;
@@ -432,6 +477,7 @@ export class User implements ui_api.User {
 
     private runner_promise: Promise<RunnerData> | null = null;
     private runner_stop_promise: Promise<void> = Promise.resolve();
+    private runner_state: RunnerState = RunnerState.STOPPED;
 
     constructor(
         private readonly ctl: Controller,
@@ -441,10 +487,10 @@ export class User implements ui_api.User {
     ) {
         this.settings = new obs.Subject(settings);
 
-        this.projects.attach(obs.refresh(
-            () => this.requestProjects(),
+        this.projects.attach(obs.filter<Map<string,Project>, Map<string,Project> | null>(obs.refresh(
+            () => this.requestProjects().catch((e) => null),
             3600 * 1000
-        ));
+        ), (v): v is Map<string,Project> => v !== null));
 
         this.as_json = new obs.Cache(obs.map(this.settings, (s) => {
             return JSON.stringify({
@@ -484,8 +530,6 @@ export class User implements ui_api.User {
         req.string(this.token);
         req.end();
 
-        this.settings.complete();
-
         return Promise.all([
             this.stop(),
             this.ctl.request("logout", {
@@ -501,7 +545,7 @@ export class User implements ui_api.User {
     private startExec(): Promise<Runner> {
         let pr = this.runner_promise;
         if(pr === null) {
-            this.runner_promise = pr = this.runner_stop_promise.catch().then(
+            this.runner_promise = pr = this.runner_stop_promise.catch(() => {}).then(
                 () => IDBStorage.create(this.ctl.stat_root, "blob_storage")
             ).then((storage) => {
                 const wp = new WorkProvider(this.ctl, this.settings, this.token);
@@ -516,26 +560,42 @@ export class User implements ui_api.User {
                         else return dev.on_mobile_data;
                     });
 
+                    this.have_battery = true;
+                    this.have_network = true;
+
                     const subs = [
                         obs_block_work.subscribe((v) => {
                             this.ov_work_paused = v;
                             this.makeOverview();
                             r.paused = v;
+                        }, () => {
+                            this.ov_work_paused = false;
+                            this.have_battery = false;
+                            this.makeOverview();
+                            r.paused = false;
                         }),
                         obs_block_download.subscribe((v) => {
                             this.ov_dl_paused = v;
                             this.makeOverview();
                             wp.paused = v;
+                        }, () => {
+                            this.ov_dl_paused = false;
+                            this.have_network = false;
+                            this.makeOverview();
+                            wp.paused = false;
                         }),
                     ];
 
                     for(const sub of subs) sub.start();
 
+                    this.runner_state = RunnerState.RUNNING;
+                    this.makeOverview();
+
                     return {
                         runner: r,
                         stop() {
-                            wp.stop();
                             for(const sub of subs) sub.stop();
+                            wp.stop();
                             return r.stop().finally(() => {
                                 storage.stop();
                             });
@@ -543,6 +603,9 @@ export class User implements ui_api.User {
                     };
                 });
             });
+
+            this.runner_state = RunnerState.STARTING;
+            this.makeOverview();
         }
         return pr.then((rd) => rd.runner);
     }
@@ -553,7 +616,13 @@ export class User implements ui_api.User {
         this.runner_promise = null;
 
         return this.runner_stop_promise = rpr.then((r) => {
+            this.runner_state = RunnerState.STOPPING;
+            this.makeOverview();
+
             return r.stop();
+        }).finally(() => {
+            this.runner_state = RunnerState.STOPPED;
+            this.makeOverview();
         });
     }
 
@@ -616,6 +685,10 @@ export class User implements ui_api.User {
         });
     }
 
+    public requestGraphs(query: string): Promise<ui_api.Graphs> {
+        return this.ctl.requestGraphs(query);
+    }
+
     public setProjectOff(name: string): void {
         this.updateSettingsF((c) => {
             let proj = c.projects;
@@ -627,6 +700,12 @@ export class User implements ui_api.User {
                 projects: proj,
             });
         });
+    }
+
+    public refreshProjects(): Promise<void> {
+        this.projects.reset();
+        // TODO: get actual promise
+        return Promise.resolve();
     }
 
     public onStat(name: string, key: stat.Key, value: number) {
@@ -646,6 +725,8 @@ export class User implements ui_api.User {
         this.makeOverview();
     }
 
+    private have_battery: boolean = false;
+    private have_network: boolean = false;
     private ov_work_paused: boolean = false;
     private ov_dl_paused: boolean = false;
     public ov_tasks_pending: number = 0;
@@ -656,13 +737,28 @@ export class User implements ui_api.User {
 
     private makeOverview(): void {
         const ov: string[] = [];
-        if(this.runner_promise !== null) {
-            ov.push("Ready to work");
-        } else {
-            ov.push("Stopped");
+        switch(this.runner_state) {
+            case RunnerState.STARTING:
+                ov.push("State: Starting up");
+                break;
+            case RunnerState.RUNNING:
+                ov.push("State: Ready");
+                break;
+            case RunnerState.STOPPING:
+                ov.push("State: Stopping");
+                break;
+            case RunnerState.STOPPED:
+                ov.push("State: Stopped");
+                break;
+        }
+        if(!this.have_battery) {
+            ov.push("Battery status not available");
         }
         if(this.ov_work_paused) {
             ov.push("On battery; not working");
+        }
+        if(!this.have_network) {
+            ov.push("Network status not available");
         }
         if(this.ov_dl_paused) {
             ov.push("On mobile data; not requesting work");
@@ -671,6 +767,18 @@ export class User implements ui_api.User {
         ov.push(`Tasks ready to run: ${this.ov_tasks_ready}`);
         ov.push(`Tasks in send queue: ${this.ov_tasks_finished}`);
         ov.push(`Tasks sent: ${this.ov_tasks_sent}`);
+
+        if(process.env.NODE_ENV === "development") {
+            ov.push(`navigator.connection: ${(window.navigator as any).connection}`);
+            ov.push(`navigator.mozConnection: ${(window.navigator as any).mozConnection}`);
+            ov.push(`navigator.webkitConnection: ${(window.navigator as any).webkitConnection}`);
+            ov.push(`navigator.battery: ${(window.navigator as any).battery}`);
+            ov.push(`navigator.mozBattery: ${(window.navigator as any).mozBattery}`);
+            ov.push(`navigator.webkitBattery: ${(window.navigator as any).webkitBattery}`);
+            ov.push(`navigator.getBattery: ${(window.navigator as any).getBattery}`);
+            ov.push(`navigator.mozGetBattery: ${(window.navigator as any).mozGetBattery}`);
+            ov.push(`navigator.webkitGetBattery: ${(window.navigator as any).webkitGetBattery}`);
+        }
         this.overview.next(ov);
     }
 }
@@ -720,5 +828,9 @@ export class UIState implements ui_api.ClientState {
             // Hope login succeeds.
             return this.login(username, password);
         });
+    }
+
+    public reset(): Promise<void> {
+        return this.ctl.reset();
     }
 }

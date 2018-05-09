@@ -427,7 +427,6 @@ export class BlobRepo {
         return this.storage.set(ref.id, data).then(() => {
             this.setBlobAvailable(blob!);
         }, (e) => {
-            console.error(e);
             if(oldState === BlobPresence.AVAILABLE) {
                 this.setBlobAvailable(blob!);
             } else {
@@ -561,7 +560,7 @@ export class BlobRepo {
         const req_index = new Map<BlobState, number>();
 
         for(const blob of this.blobs.values()) {
-            if(isRemote(blob.ref) && blob.present === BlobPresence.AVAILABLE && blob.refcnt === 0) {
+            if(!isState(blob.ref) && blob.present === BlobPresence.AVAILABLE && blob.refcnt === 0) {
                 evictable.push(blob);
             }
         }
@@ -574,6 +573,10 @@ export class BlobRepo {
         }
 
         evictable.sort((a, b) => {
+            const la = isLocal(a.ref);
+            const lb = isLocal(b.ref);
+            if(la && !lb) return -1;
+            if(!la && lb) return 1;
             const ia = req_index.get(a);
             const ib = req_index.get(b);
             if(ia !== ib) {

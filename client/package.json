@@ -4,6 +4,7 @@
     "lint": "yarn run tslint --project tsconfig-dom.json && yarn run tslint --project tsconfig-worker.json"
   },
   "dependencies": {
+    "chart.js": "^2.7.2",
     "double-ended-queue": "*",
     "react": "^16.3.2",
     "react-dom": "^16.3.2",
@@ -14,6 +15,8 @@
     "@types/react-router-dom": "^4.2.6",
     "@types/webassembly-js-api": "*",
     "css-loader": "^0.28.11",
+    "mini-css-extract-plugin": "^0.4.0",
+    "optimize-css-assets-webpack-plugin": "^4.0.1",
     "raw-loader": "*",
     "style-loader": "^0.21.0",
     "ts-loader": "*",
@@ -21,5 +24,8 @@
     "typescript": "^2.8.1",
     "webpack": "*",
     "webpack-cli": "*"
-  }
+  },
+  "sideEffects": [
+    "*.css"
+  ]
 }

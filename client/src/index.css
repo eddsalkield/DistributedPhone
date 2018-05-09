@@ -26,6 +26,12 @@ table {
 	border-collapse: collapse;
 	border-spacing: 0;
 }
+a, button {
+	outline: 0;
+}
+input::-moz-focus-inner, button::-moz-focus-inner, button:focus::-moz-focus-inner {
+	border: 0;
+}
 
 html {
 	font-size: 12px;
@@ -44,8 +50,10 @@ a {
 	font-weight: bold;
 	cursor: pointer;
 }
-
 a:hover {
+	color: #00c;
+}
+a:focus {
 	color: #00f;
 }
 
@@ -55,6 +63,10 @@ em {
 
 strong {
 	font-weight: bold;
+}
+
+p, h1, h2, h3, h4, h5, h6 {
+	line-height: 1.5;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -73,12 +85,15 @@ h3 {
 	margin-bottom: 0.5em;
 }
 h2 {
-	font-size: 1.75em;
+	font-size: 1.5em;
 	margin-bottom: 0.5em;
 }
 h1 {
-	font-size: 2em;
-	margin-bottom: 1em;
+	font-size: 1.75em;
+	margin-bottom: 0.5em;
+}
+p {
+	margin: 0.25em 0em;
 }
 
 .section-split {
