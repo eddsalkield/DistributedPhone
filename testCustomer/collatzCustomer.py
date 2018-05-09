@@ -1,6 +1,7 @@
 import sys, cbor, socket, os
 import serverRequest
 import time
+import calendar
 from serverRequest import *
 
 # Pass the username and password as command-line arguments
@@ -22,15 +23,20 @@ class TaskDistributor:
     # For now we just have a fixed range.
     # Starting at 'search_start', we have 'number_tasks' intervals of length 'fixed_range'
     # So the total search will be between [search_start ... search_start + fixed_range * number_tasks)
-    search_start = 900000
-    fixed_range  = 1000
-    number_tasks = 10
+    search_start = 3000000000000000000000000000
+    fixed_range  = 100000
+    number_tasks = 0 
 
     def __init__ (self, token):
-            self.results = []   # List of (number, seqLength) pairs
+            self.highestSeqs = []
             self.token = token
+            self.startTime = calendar.timegm(time.gmtime())
+
+    def go (self, no_tasks):
+            self.number_tasks = no_tasks
             self.initTasks()
             self.monitorBlobs()
+            print("processed " + str(no_tasks) + " tasks")
 	
     def makeTaskBlob(self):
         (success, data) = createNewBlob(self.token, project_name, collatz_wa, cbor.dumps({}))
@@ -44,6 +50,7 @@ class TaskDistributor:
         # Push blob containing web assembly to the database, return its ID
         taskBlobID = self.makeTaskBlob()
         print("Blob creation succeeded")
+        print ("Taskifying " + str(self.number_tasks) + " times...")
 
         for taskNo in range (0, self.number_tasks):
             
@@ -64,35 +71,71 @@ class TaskDistributor:
                 print("Error when creating blob (pre-taskify)")
                 print(dataBlob["error"])
                 sys.exit()
-
-            print("Successfully created task blob")
             
             (success, dataTask) = blobToTask(token, project_name, dataBlob["blobID"])
             if (not success):
                 print ("Error when taskifying")
                 print (dataTask["error"])
                 sys.exit()
-            print("Successfully converted blob to task")
+
+        print ("Taskifying succeeded")
+
+    def plot(self, results):
+
+        graphs = { 
+           "highestResults": { 
+                "type": 'scatter',
+                "data": {
+                    "datasets": [{
+                        "label": 'Longest sequences computed from tasks',
+                        "borderColor": 'rgb(0, 255, 0)',
+                        "data": self.highestSeqs,
+                        "showLine": True,
+                        "lineTension": 0.0 
+                    }]
+                },
+                "options": {
+                    "scales": {
+                        "xAxes": [{
+                            "time": {
+                                "unit": 'second'    
+                            }
+                        }]
+                    }
+                }
+           }
+        }
+
+        updateGraphs(self.token, graphs, project_name)
 
     def processResults(self, bytedata):
-        # First decode the intervals from the data (16 bytes)
-        print("size: " + str(len(bytedata)))
+
+        # Process results from a single task
         
         left = int.from_bytes(bytedata[:16], 'little')
         right = int.from_bytes(bytedata[16:32], 'little')
+        highestSeqLen = int.from_bytes(bytedata[32:36], 'little')
 
-        print(str(left) + " " + str(right))
+        '''
+        highestSeqLen = 0
         for i in range (0, right - left):
             seqLength = 0
             for j in range (0, 4): # Int sequence lengths
-                seqLength += bytedata[4 * i + j + 32]<<8*j	
-            print((left + i, seqLength)) 
+                seqLength += bytedata[4 * i + j + 32]<<8*j
+        
+            highestSeqLen = max (highestSeqLen, seqLength)
+        '''
+        timePassed = calendar.timegm(time.gmtime()) - self.startTime
+        self.highestSeqs.append ( {"x": timePassed, "y": highestSeqLen} )
+        self.plot(self.highestSeqs)
 
     # When a worker finished a computation, it places a blob in the database along with metadata
     # indicating whether the task is finished. The customer will routinely scan (will it?) the database for
     # finished blobs and will acquire their results before deleting them.
+
     def monitorBlobs(self):
         dataRecieved = 0
+        print("Monitoring blobs...")
         while (dataRecieved < self.number_tasks):
             time.sleep(5)
 
@@ -122,6 +165,8 @@ class TaskDistributor:
                         dataRecieved += 1
                         deleteBlob(self.token, project_name, blobid)
 
+        print ("Monitored all blobs")
+
 ############### START HERE ################
 if __name__ == '__main__':
 
@@ -142,3 +187,12 @@ if __name__ == '__main__':
 
     # Login successful
     distributor = TaskDistributor(token)
+    
+    try:
+        no_tasks = int (input("How many tasks would you like to add? "))
+        while (no_tasks != 0):
+            distributor.go(no_tasks)
+            no_tasks = int (input("How many tasks would you like to add? "))
+    except:
+        print("Input error")
+

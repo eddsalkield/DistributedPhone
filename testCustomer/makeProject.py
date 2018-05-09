@@ -31,7 +31,33 @@ if (not success):
     sys.exit()
 
 token = dataLogin["token"]
-(success, data) = createNewProject(token, "Project", "test1")
+(success, data) = createNewProject(token, projectName, "Help us solve the Collatz conjecture")
+
+graphs = { 
+   "highestResults": { 
+        "type": 'scatter',
+        "data": {
+            "datasets": [{
+                "label": 'Longest sequences computed from tasks',
+                "borderColor": 'rgb(0, 255, 0)',
+                "data": {"x": 0, <C-F11><C-F11><C-F11>},
+                "showLine": True,
+                "lineTension": 0.0 
+            }]
+        },
+        "options": {
+            "scales": {
+                "xAxes": [{
+                    "time": {
+                        "unit": 'second'    
+                    }
+                }]
+            }
+        }
+   }
+}
+
+updateGraphs(token, graphs, projectName)
 
 (success, dataLogout) = logout(token)
 if (success):
