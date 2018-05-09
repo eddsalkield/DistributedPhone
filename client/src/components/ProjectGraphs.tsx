@@ -29,6 +29,7 @@ interface Props {
 interface StandardCharts {
     worker_chart: ChartConfig;
     task_chart: ChartConfig;
+    task2_chart: ChartConfig;
 }
 
 interface State extends Partial<StandardCharts> {
@@ -48,65 +49,102 @@ function flatLine(data: ChartPoint[], now: number) {
 }
 
 function makeStandardGraphs(xAxis: ChartTimeAxis, data: Graphs): StandardCharts {
-    const opts: ChartOptions = {
-        animation: {
-            duration: 0,
-        },
-        responsiveAnimationDuration: 0,
-        scales: {
-            xAxes: [xAxis],
-            yAxes: [{
-                type: "linear",
-                ticks: {
-                    autoSkip: true,
-                    min: 0,
-                },
-            }],
-        },
-    };
-
     const now = new Date(xAxis.time!.max!).getTime();
+    const minTime = new Date(xAxis.time!.min!).getTime();
     for(const k of Object.keys(data)) {
         flatLine(data[k], now);
     }
 
+    const filterfunc = (p: ChartPoint, i: number, a: ChartPoint[]) => {
+        return p.x! >= minTime || a[i+1] && a[i+1].x! >= minTime;
+    };
+
     return {
         worker_chart: {
             type: "scatter",
-            options: opts,
+            options: {
+                animation: {
+                    duration: 0,
+                },
+                responsiveAnimationDuration: 0,
+                scales: {
+                    xAxes: [xAxis],
+                    yAxes: [{
+                        type: "linear",
+                        ticks: {
+                            autoSkip: true,
+                            min: 0,
+                        },
+                    }],
+                },
+            },
             datasets: [{
                 label: "Registered Workers",
                 borderColor: "rgb(0, 0, 255)",
-                data: data.totalWorkers,
+                data: data.totalWorkers.filter(filterfunc),
                 showLine: true,
                 lineTension: 0,
             }, {
                 label: "Active Workers",
                 borderColor: "rgb(0, 255, 0)",
-                data: data.activeWorkers,
+                data: data.activeWorkers.filter(filterfunc),
                 showLine: true,
                 lineTension: 0,
             }],
         },
         task_chart: {
             type: "scatter",
-            options: opts,
+            options: {
+                animation: {
+                    duration: 0,
+                },
+                responsiveAnimationDuration: 0,
+                scales: {
+                    xAxes: [xAxis],
+                    yAxes: [{
+                        type: "linear",
+                        ticks: {
+                            autoSkip: true,
+                        },
+                    }],
+                },
+            },
             datasets: [{
                 label: "Tasks Completed",
                 borderColor: "rgb(0, 255, 0)",
-                data: data.tasksCompleted,
+                data: data.tasksCompleted.filter(filterfunc),
                 showLine: true,
                 lineTension: 0,
-            }, {
+            }],
+        },
+        task2_chart: {
+            type: "scatter",
+            options: {
+                animation: {
+                    duration: 0,
+                },
+                responsiveAnimationDuration: 0,
+                scales: {
+                    xAxes: [xAxis],
+                    yAxes: [{
+                        type: "linear",
+                        ticks: {
+                            autoSkip: true,
+                            min: 0,
+                        },
+                    }],
+                },
+            },
+            datasets: [{
                 label: "Tasks Refused",
                 borderColor: "rgb(0, 0, 255)",
-                data: data.tasksRefused,
+                data: data.tasksRefused.filter(filterfunc),
                 showLine: true,
                 lineTension: 0,
             }, {
                 label: "Tasks Failed",
                 borderColor: "rgb(255, 0, 0)",
-                data: data.tasksFailed,
+                data: data.tasksFailed.filter(filterfunc),
                 showLine: true,
                 lineTension: 0,
             }],
@@ -151,6 +189,7 @@ export default class ProjectGraphs extends React.Component<Props, State> {
                     error: e.message,
                     worker_chart: undefined,
                     task_chart: undefined,
+                    task2_chart: undefined,
                 });
                 // Handle error here
             }),
@@ -241,7 +280,7 @@ export default class ProjectGraphs extends React.Component<Props, State> {
     }
 
     public render() {
-        const {worker_chart, task_chart, enabled_projects, error, project_data, custom_charts} = this.state;
+        const {worker_chart, task_chart, task2_chart, enabled_projects, error, project_data, custom_charts} = this.state;
         if(project_data === undefined) {
             return <Loading />;
         }
@@ -260,6 +299,7 @@ export default class ProjectGraphs extends React.Component<Props, State> {
             {error === null ? <React.Fragment>
                 {worker_chart && <Chart key="standard-worker" {...worker_chart} />}
                 {task_chart && <Chart key="standard-task" {...task_chart} />}
+                {task2_chart && <Chart key="standard-task" {...task2_chart} />}
                 {custom_charts.map(([name, config]) => {
                     return <Chart key={"custom-" + name} {...config} />;
                 })}
