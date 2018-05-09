@@ -46,7 +46,7 @@ export default class Login extends React.Component<Props, State> {
 
         this.setState({signingUp: true, signUpError: null});
         this.props.controller.signUp(data["email"] as string, password).then(() => {
-            // nop?
+            location.href = "#/projects";
         }, (e) => {
             this.setState({
                 signingUp: false,
@@ -59,7 +59,6 @@ export default class Login extends React.Component<Props, State> {
         this.setState({loginError: null, loggingIn: true});
         this.props.controller.login(data["email"] as string, data["password"] as string).finally(() => {
         }).then(() => {
-            // nop?
         }, (e) => {
             this.setState({
                 loggingIn: false,
@@ -70,9 +69,9 @@ export default class Login extends React.Component<Props, State> {
 
     private onGuestLogin = () => {
         this.setState({loginError: null, loggingInAsGuest: true});
-        this.props.controller.loginGuest().finally(() => {
-            // nop?
-        }).catch((e) => {
+        this.props.controller.loginGuest().then(() => {
+            location.href = "#/projects";
+        }, (e) => {
             this.setState({
                 loggingInAsGuest: false,
                 signUpError: e.message,
