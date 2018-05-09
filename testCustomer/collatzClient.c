@@ -73,6 +73,7 @@ struct pptw1_response *pptw1_run(struct pptw1_request* req) {
 
     // search [left..right)
 
+    seqlen_t maxSeqLength = 0;
     for (__uint128_t i = left; i < right; i++) {
         num = i; seqLength = 0;
         while (num != 1) { // assuming collatz conj :)
@@ -82,12 +83,20 @@ struct pptw1_response *pptw1_run(struct pptw1_request* req) {
         }
         // may have overflowed
         if (num == 1) {
-            seqlen_write(blobMemIndex, seqLength);
-            blobMemIndex += sizeof(seqlen_t);
+            // seqlen_write(blobMemIndex, seqLength);
+            // blobMemIndex += sizeof(seqlen_t);
+	    
+	    // compare with current max
+	    if (maxSeqLength < seqLength) {
+		maxSeqLength = seqLength;
+	    }
         }
     }
 
-    // Info has been written to memory[blobMem ... blobMem + seqDone)
+    // Write max to blobMem
+    seqlen_write(blobMemIndex, seqLength); blobMemIndex += sizeof(seqlen_t);
+
+    // Info has been written to memory[blobMem ... blobMem + 4)
     struct pptw1_blobref * thisBlob = &(response->blobs[0]); // we send a single blob
     thisBlob->data = blobMemStart;
     thisBlob->size = blobMemIndex - blobMemStart;
