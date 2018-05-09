@@ -50,8 +50,8 @@ function parseResponse(data: ArrayBuffer, handlers: {[name: string]: ((r: cbor.R
 }
 
 const DEFAULT_SETTINGS: Settings = {
-    allow_mobile_data: false,
-    allow_on_battery: false,
+    allow_mobile_data: true,
+    allow_on_battery: true,
     projects: [],
 };
 
