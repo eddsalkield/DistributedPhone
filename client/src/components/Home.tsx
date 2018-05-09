@@ -4,6 +4,8 @@ import * as obs from "@/obs";
 
 import * as api from "../API";
 
+import Logo from "./Logo";
+
 import "./Home.css";
 
 interface Props {
@@ -41,7 +43,7 @@ export default class Home extends React.Component<Props, State> {
         const {overview} = this.state;
 
         return <div className="Main Home">
-            <h1>Put your Phone to Work</h1>
+            <h1><Logo /></h1>
             {overview.map((t) => <p>{t}</p>)}
         </div>;
     }

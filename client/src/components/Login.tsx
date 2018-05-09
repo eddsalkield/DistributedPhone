@@ -6,6 +6,7 @@ import Button from "./Button";
 import Form, {FormData} from "./Form";
 import FormError from "./FormError";
 import InText from "./InText";
+import Logo from "./Logo";
 
 import "./Login.css";
 
@@ -85,7 +86,7 @@ export default class Login extends React.Component<Props, State> {
 
     public render() {
         return <div className="Login">
-            <h1>Put your Phone to Work</h1>
+            <h1><Logo /></h1>
             <div className="section-split"><span>Will <em>you</em> join your phone to our botnet?</span></div>
             { this.state.isSignUp ?
                 <Form className="Form-large" onSubmit={this.onSignUp}>
