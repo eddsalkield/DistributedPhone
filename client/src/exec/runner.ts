@@ -470,20 +470,26 @@ export default class Runner {
                 release = resolve;
             });
 
+            let tm: number | undefined;
+
             const ctl = this.dispatcher.push({
                 onStart: () => {
                     this.tasks_running.add(t);
                     this.report();
+
+                    tm = self.setTimeout(() => {
+                        ctl.kill(new err.Runtime("Timed out"));
+                    }, 30 * 1000);
                 },
                 onDone: (data: workapi.OutResult) => {
-                    self.clearTimeout(tm);
+                    if(tm !== undefined)  self.clearTimeout(tm);
                     delete t.tryCancel;
                     release!();
                     this.tasks_running.delete(t);
                     this.taskDone(t, data.data);
                 },
                 onError: (e: Error) => {
-                    self.clearTimeout(tm);
+                    if(tm !== undefined) self.clearTimeout(tm);
                     delete t.tryCancel;
                     release!();
                     this.tasks_running.delete(t);
@@ -505,10 +511,6 @@ export default class Runner {
             t.tryCancel = () => {
                 ctl.kill(new err.Cancelled("Task cancelled"));
             };
-
-            const tm = self.setTimeout(() => {
-                t.tryCancel!();
-            }, 30 * 1000);
 
             this.report();
             return pr_release;
