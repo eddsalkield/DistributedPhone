@@ -7,6 +7,7 @@ import * as chartjs from "chart.js";
 export type ChartDataset = chartjs.ChartDataSets;
 export type ChartOptions = chartjs.ChartOptions;
 export type ChartPoint = chartjs.ChartPoint;
+export type ChartTimeAxis = chartjs.TimeAxis;
 
 interface Props {
     type: string;

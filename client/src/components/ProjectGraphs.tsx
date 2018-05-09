@@ -4,7 +4,7 @@ import * as obs from "@/obs";
 
 import * as api from "../API";
 
-import {Chart, ChartDataset, ChartOptions, ChartPoint} from "./Chart";
+import {Chart, ChartDataset, ChartOptions, ChartPoint, ChartTimeAxis} from "./Chart";
 import Loading from "./Loading";
 
 import "./ProjectGraphs.css";
@@ -45,26 +45,14 @@ function flatLine(data: ChartPoint[], now: number) {
 	}
 }
 
-function makeStandardGraphs(data: Graphs): StandardCharts {
-    const now = new Date().getTime();
-
+function makeStandardGraphs(xAxis: ChartTimeAxis, data: Graphs): StandardCharts {
     const opts: ChartOptions = {
         animation: {
             duration: 0,
         },
         responsiveAnimationDuration: 0,
         scales: {
-            xAxes: [{
-                type: "time",
-                time: {
-                    unit: "minute",
-                    min: new Date(now - 5 * 60 * 1000).toISOString(),
-                    max: new Date(now).toISOString(),
-                },
-                ticks: {
-                    autoSkip: true,
-                },
-            }],
+            xAxes: [xAxis],
             yAxes: [{
                 type: "linear",
                 ticks: {
@@ -75,6 +63,7 @@ function makeStandardGraphs(data: Graphs): StandardCharts {
         },
     };
 
+    const now = new Date(xAxis.time!.max!).getTime();
     for(const k of Object.keys(data)) {
         flatLine(data[k], now);
     }
@@ -153,7 +142,7 @@ export default class ProjectGraphs extends React.Component<Props, State> {
                     + `&kind=standardGraphs`
                 );
             }, this.props.refresh_period).subscribe((graphs) => {
-                this.setState(makeStandardGraphs(graphs));
+                this.setState(makeStandardGraphs(this.xAxis(), graphs));
             }, (e) => {
                 this.setState({
                     error: e.message,
@@ -172,9 +161,13 @@ export default class ProjectGraphs extends React.Component<Props, State> {
                 this.setState({
                     custom_charts: Object.keys(graphs).map((k): [string, ChartConfig] => {
                         const v = graphs[k];
+                        const opts: ChartOptions = v["options"];
+                        opts.scales!.xAxes = [this.xAxis()];
+                        opts.animation = {duration: 0};
+                        opts.responsiveAnimationDuration = 0;
                         return [k, {
                             type: v["type"],
-                            options: v["options"],
+                            options: opts,
                             datasets: v["data"]["datasets"],
                         }];
                     }),
@@ -182,6 +175,7 @@ export default class ProjectGraphs extends React.Component<Props, State> {
             }, (e) => {
                 this.setState({
                     error: e.message,
+                    custom_charts: [],
                 });
                 // Handle error here
             }),
@@ -211,6 +205,22 @@ export default class ProjectGraphs extends React.Component<Props, State> {
         }
     }
 
+    private xAxis(): ChartTimeAxis {
+        const now = new Date().getTime();
+
+        return {
+            type: "time",
+            time: {
+                unit: "minute",
+                min: new Date(now - 5 * 60 * 1000).toISOString(),
+                max: new Date(now).toISOString(),
+            },
+            ticks: {
+                autoSkip: true,
+            },
+        };
+    }
+
     public render() {
         const {worker_chart, task_chart, error, project_data, custom_charts} = this.state;
         if(project_data === undefined) {
@@ -233,7 +243,8 @@ export default class ProjectGraphs extends React.Component<Props, State> {
                     return <Chart key={"custom-" + name} {...config} />;
                 })}
             </React.Fragment> : <React.Fragment>
-                <span className="ProjectGraphs-error">error</span>
+                <span className="ProjectGraphs-error">{error}</span>
+                <br />
                 <a onClick={() => this.reset()}>Retry</a>
             </React.Fragment>}
         </div>;
