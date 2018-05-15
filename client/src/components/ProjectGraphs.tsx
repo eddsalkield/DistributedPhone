@@ -200,19 +200,50 @@ export default class ProjectGraphs extends React.Component<Props, State> {
                     + `&kind=customGraphs`
                 );
             }, this.props.refresh_period).subscribe((graphs) => {
+                const xAxis = this.xAxis();
+                const now = new Date(xAxis.time!.max!).getTime();
+                const minTime = new Date(xAxis.time!.min!).getTime();
+                const filterfunc = (p: ChartPoint, i: number, a: ChartPoint[]): boolean => {
+                    return p.x! >= minTime || a[i+1] && a[i+1].x! >= minTime;
+                };
+
+                const custom = Object.keys(graphs).map((k): [string, ChartConfig] => {
+                    const v = graphs[k];
+                    const opts: ChartOptions = v["options"];
+                    const data: ChartDataset[] = v["data"]["datasets"];
+                    opts.scales!.xAxes = [xAxis];
+                    opts.animation = {duration: 0};
+                    opts.responsiveAnimationDuration = 0;
+                    if(k === "highestResults" && data.length > 0) {
+                        const ps2: ChartPoint[] = [];
+                        let mv: number | undefined = undefined;
+                        for(const p of data[0].data!) {
+                            const y = (p as ChartPoint).y as number;
+                            if(y !== undefined && (mv === undefined || y > mv)) {
+                                mv = y;
+                                ps2.push(p as ChartPoint);
+                            }
+                        }
+                        if(mv !== undefined) ps2.push({x: now, y: mv});
+                        data.push({
+                            label: 'Maximum sequence length',
+                            borderColor: 'rgb(255, 0, 0)',
+                            data: ps2,
+                            showLine: true,
+                            lineTension: 0.0,
+                        });
+                    }
+                    for(const ds of data) {
+                        ds.data = (ds.data as ChartPoint[]).filter(filterfunc);
+                    }
+                    return [k, {
+                        type: v["type"],
+                        options: opts,
+                        datasets: data,
+                    }];
+                });
                 this.setState({
-                    custom_charts: Object.keys(graphs).map((k): [string, ChartConfig] => {
-                        const v = graphs[k];
-                        const opts: ChartOptions = v["options"];
-                        opts.scales!.xAxes = [this.xAxis()];
-                        opts.animation = {duration: 0};
-                        opts.responsiveAnimationDuration = 0;
-                        return [k, {
-                            type: v["type"],
-                            options: opts,
-                            datasets: v["data"]["datasets"],
-                        }];
-                    }),
+                    custom_charts: custom,
                 });
             }, (e) => {
                 this.setState({

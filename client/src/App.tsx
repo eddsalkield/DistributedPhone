@@ -58,7 +58,7 @@ class App extends React.Component<Props, State> {
                 return <ProjectGraphs
                     user={user}
                     project={props.match.params.project}
-                    refresh_period={1000}
+                    refresh_period={2100}
                 {...props} />;
             }} />
             <Route exact path="/settings"  render={(props) => <Settings user={user} {...props} />}/>
